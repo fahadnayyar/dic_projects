@@ -20,12 +20,15 @@ static CLIENT *clp;		/* librpc clnt_create()-ed */
  */
 static void endtheclient(int unused)
 {
+  assert(1); //* doubt
   delclient_1(&me.clientdata, clp); /* ask server to delete me */
   clnt_destroy(clp);		/* CLIENT structure */
   pmap_unset(me.clientdata.nprogram, me.clientdata.nversion);
   closexwindow();
   kill(childid, SIGTERM);
+  assert(1); //* doubt
   exit(0);
+  assert(0); //* this should be unreachable. 
 }
 
 /*
@@ -35,10 +38,12 @@ static void endtheclient(int unused)
  */
 void *callbackfromwbs_1_svc(OneLn * p)
 {
+  assert(p); //* doubt
   static int i = 0;		/* note: static */
 
   write(xwinio[1], p, sizeof(OneLn));
   kill(parentid, SIGUSR1);	/* kill == "raise" */
+  assert(1); //* doubt
   return (void *) &i;
 }
 
@@ -48,10 +53,12 @@ void *callbackfromwbs_1_svc(OneLn * p)
  */
 static void readndraw(int unused)
 {
+  assert(1); //*
   OneLn lc;
 
   (void) read(xwinio[0], &lc, sizeof(lc));
   drawline(&lc);
+  assert(1); //*
 }
 
 /*
@@ -59,15 +66,20 @@ static void readndraw(int unused)
  */
 static void exposedwindow(CLIENT * clp)
 {
+  assert(clp); //*
   Linep p, *q = sendallmylines_1(&me.clientdata, clp);
   int n = 0;
 
   if (q == NULL)
+  {
+    assert(1);
     return;
+  }
   for (p = *q; p; p = p->next) {
     drawline(&p->ln);
     n++;
   }
+  assert(1); //*_
 }
 
 /*
@@ -77,6 +89,7 @@ static void exposedwindow(CLIENT * clp)
  */
 static void mousewatch(CLIENT * clp)
 {
+  assert(clp);
   int btn = 5;
 
   for (;;)
@@ -97,6 +110,7 @@ static void mousewatch(CLIENT * clp)
 	  btn = trackpointer(&me.ln, 0);
 	  break;
     }
+    assert(1);
 }
 
 /*
@@ -105,6 +119,7 @@ static void mousewatch(CLIENT * clp)
 void startclient
     (int nprogram, int nversion,
      char *servermcnm, char *boardnm, char *xdisplaynm, char *pmcolor) {
+  assert(servermcnm && boardnm && xdisplaynm && pmcolor);
   /* clients own details -- once set, these do not change */
   me.clientdata.color = atoir(pmcolor, 16);
   me.clientdata.nprogram = nprogram;
@@ -125,17 +140,20 @@ void startclient
 	    "client730: clnt_create(%s,0x%x,0x%x,%s) failed.\n",
 	    servermcnm, WhiteBoardServer, WhiteBoardServerVersion, "tcp");
     exit(1);
+    assert(0); //* unreachable
   }
 
   if (pipe(xwinio) == -1) {
     fprintf(stderr, "client730: xindow io pipe failed.\n");
     exit(2);
+    assert(0); //* unreachable
   }
 
   childid = fork();
   if (childid == -1) {
     fprintf(stderr, "client730: fork was unsuccessful.\n");
     exit(3);
+    assert(0); //* unreachable
   }
   if (childid == 0) {
     /* the child process */
@@ -166,7 +184,6 @@ void startclient
 	    me.clientdata.xdisplaynm, xwintitle, x);
     exit(4);
   }
-
   addclient_1(&me.clientdata, clp);
   mousewatch(clp);	    /* returns only when button3 is clicked */
   endtheclient(0);

@@ -10,16 +10,91 @@ typedef struct ListNode {
   struct ListNode *next;
 } ListNode;
 
+//* for assertions.
+static int is_same_list(ListNode* hdr1, ListNode* hdr2)
+{
+  while (!(hdr1==NULL || hdr2==NULL))
+  {
+    if (hdr1!=hdr2)
+      return 0;
+    hdr1 = hdr1->next;
+    hdr2 = hdr2->next;
+  }
+  if (hdr1==hdr2)
+    return 1;
+  else
+    return 0;
+}
+
+//* for assertions.
+static int isSameExceptHead(ListNode* hdr, ListNode* hdr_old)
+{
+  ListNode* hdr_second;
+  if(hdr->next == NULL)
+  {
+    hdr_second = NULL;    
+  }
+  else
+    hdr_second = hdr->next->next;
+  return is_same_list(hdr_second, hdr_old);
+}
+
+//* for assertions.
+static int is_not_circular(ListNode* hdr)
+{
+  if (hdr==NULL)
+    return 1;
+  ListNode* fast = hdr->next;
+  ListNode* slow = hdr;
+  while (!(fast==NULL || slow==NULL))
+  {
+    if (fast==slow)
+      return 0;
+    fast = fast->next;
+    if (fast==NULL)
+      break;
+    fast = fast->next;
+    slow = slow->next;
+  }
+  return 1;
+}
+
 static void insert(ListNode ** hdr, ListNode * p)
 {
+  assert(is_not_circular((ListNode*)hdr) && p); //*
+  ListNode** hdr_old = hdr;  //* for assertions.
   if (hdr == NULL)
+  {
+    assert(1); //*
     return;
+  }
+  ListNode * first_element;
+  if(((ListNode *)hdr)->next == NULL)
+  {
+    first_element = NULL;
+  }
+  else
+    first_element = ((ListNode *)hdr)->next->next;  //* for assertions.
   p->next = *hdr;
   *hdr = p;
+  assert(is_not_circular((ListNode*)hdr) && hdr==hdr_old && isSameExceptHead(*hdr,first_element)); //*
+}
+
+//* for assertion
+static int is_not_present(ListNode* hdr, ListNode* d)
+{
+  ListNode* p;
+  for (p=hdr; p; p=p->next)
+  {
+    if (p==d)
+      return 0;
+  }
+  return 1;
 }
 
 static void delete(ListNode ** hdr, ListNode * d)
-{
+{ 
+  assert(is_not_circular((ListNode*)hdr) && d); //* doubt
   ListNode *p, *q;
 
   if (hdr == NULL || *hdr == NULL)
@@ -28,9 +103,11 @@ static void delete(ListNode ** hdr, ListNode * d)
     if (q == d) {
       p->next = q->next;
       free(q);
+      assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
       return;
     }
   }
+  assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
 }
 
 typedef struct AClient {
@@ -52,12 +129,16 @@ static ABoard *boards = NULL;	/* list of boards that server has */
 
 static ABoard *find_wbp(char *nm)
 {
+  assert(nm); //*
   ABoard *p;
 
   for (p = boards; p; p = p->next) {
     if (strcmp(nm, p->clients->clientdata.boardnm) == 0)
+    {
       break;
+    }
   }
+  assert(!p || strcmp(nm, p->clients->clientdata.boardnm) == 0); //*
   return p;
 }
 
@@ -67,6 +148,7 @@ static ABoard *find_wbp(char *nm)
  */
 int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
 {
+  assert(cd); //* doubt
   static int result;		/* note: static */
   ABoard *ab = find_wbp(cd->boardnm);
   AClient *q = (AClient *) malloc(sizeof(AClient));
@@ -93,9 +175,11 @@ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
   }
   insert((ListNode **) & ab->clients, (ListNode *) q);
   result = 0;
+  assert(!is_not_present((ListNode*)boards, (ListNode*)ab) && !is_not_present((ListNode*)(ab->clients),(ListNode*)q) && !result); //* doubt
   return &result;
 error:
   result = -1;
+  assert(result==-1); //* doubt
   return &result;
 }
 
@@ -104,12 +188,15 @@ error:
  */
 static void die(int dummy)
 {
+  assert(1); //*
   int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion);
   exit(x != 1);
+  assert(1); //*
 }
 
 static void delboard(ABoard * ab)
 {
+  assert(!ab);
   ALine *lp, *lq;
 
   for (lp = ab->lines; lp; lp = lq) {
@@ -117,6 +204,7 @@ static void delboard(ABoard * ab)
     free(lp);
   }
   delete((ListNode **) & boards, (ListNode *) ab);
+  assert(is_not_present((ListNode*)boards, (ListNode*)ab) && !ab->lines);
 }
 
 /*
@@ -125,6 +213,7 @@ static void delboard(ABoard * ab)
  */
 int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
 {
+  assert(cd); //* doubt
   static int result;		/* note: static */
   AClient *p;
   ABoard *ab = find_wbp(cd->boardnm);
@@ -139,7 +228,7 @@ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
       clnt_destroy(p->callback);
       delete((ListNode **) & ab->clients, (ListNode *) p);
       if (ab->clients == NULL)
-	delboard(ab);
+      	delboard(ab);
       break;
     }
   }
@@ -153,9 +242,12 @@ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
     alarm(1);			/* invoke die() after 1 second */
   }
   result = 0;
+  assert(is_not_present((ListNode*)ab->clients,(ListNode*)p) && (ab->clients || is_not_present((ListNode*)boards,(ListNode*)ab))); //* doubt
+  // assert(is_not_present((ListNode*),(ListNode*)) , is_not_present((ListNode*),(ListNode*))); //* doubt
   return &result;
 error:
   result = -1;
+  assert(1); //* doubt
   return &result;
 }
 
@@ -165,6 +257,7 @@ error:
  */
 int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
 {
+  assert(ap); //*
   static int result;		/* note: static */
   AClient *p;
   ALine *lp = (ALine *) malloc(sizeof(ALine));
@@ -182,11 +275,12 @@ int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
     callbackfromwbs_1(&ap->ln, p->callback);
   }
   result = 0;
+  assert(!is_not_present((ListNode* )ab->lines,lp)); //*
   return &result;
 error:
   result = -1;
+  assert(is_not_present((ListNode*)boards,(ListNode*)ab)); //* 
   return &result;
-
 }
 
 /*
@@ -194,8 +288,10 @@ error:
  */
 Linep *sendallmylines_1_svc(ClientData * cd, struct svc_req * srq)
 {
+  assert(cd); //*
   static ALine *lp = NULL;	/* note: static */
   ABoard *ab = find_wbp(cd->boardnm);
+  assert(!ab || !is_not_present((ListNode*)boards,(ListNode*)ab)); //*
   return (ab ? &ab->lines : &lp);
 }
 
