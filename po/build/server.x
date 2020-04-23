@@ -16,8 +16,8 @@ struct ClientData {
   char boardnm[NMSZ];		/* board name */
   char xdisplaynm[NMSZ];	/* X11 display name */
   char machinenm[NMSZ];		/* name of machine running this client */
-  int nprogram;			/* rpc prog num for callbacks */
-  int nversion;			/* registered version number */
+  int nprogram;			/* rpc prog num for callbacks */ /* doubt */
+  int nversion;			/* registered version number */ /* doubt */
   long color;
 };
 
@@ -26,6 +26,7 @@ struct AddLineArg {
   ClientData clientdata;
 };
 
+/* doubt: did not understand the syntax of the below struct. Use of this struct/program? */  
 program WhiteBoardServer {
   version WhiteBoardServerVersion {
     int addclient(ClientData) = 1;
@@ -33,6 +34,6 @@ program WhiteBoardServer {
     int addline(AddLineArg) = 3;
     Linep sendallmylines(ClientData) = 4;
   } = 1;
-} = 0x20000099;			/* change to your own last 4 digits */
+} = 0x20000099;			/* change to your own last 4 digits */ /* doubt? */ 
 
 /* -eof- */

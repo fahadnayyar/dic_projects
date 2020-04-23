@@ -13,7 +13,7 @@
 static int parentid, childid;	/* process ids */
 static int xwinio[2];		/* pipe: child writes, parent reads */
 static AddLineArg me;		/* all the info there is about this client */
-static CLIENT *clp;		/* librpc clnt_create()-ed */
+static CLIENT *clp;		/* librpc clnt_create()-ed */ // doubt 
 
 /*
  * Terminate the client.  Remove all traces of the parent+child

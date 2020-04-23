@@ -69,7 +69,7 @@ int queryServer(char * snm, int prgn, CLIENT * clp)
 
 int main(int argc, char * argv[])
 {
-  CLIENT * clp = 0;
+  CLIENT * clp = 0; // doubt
   int  result = -1;
 	
   if (argc < 4)
@@ -81,7 +81,7 @@ int main(int argc, char * argv[])
   char * host = argv[2];
   int prognum = strtol(argv[3], 0, 16);
   printf("prgn %x\n", prognum);
-  clp = clnt_create(host, prognum, WhiteBoardServerVersion, "tcp");
+  clp = clnt_create(host, prognum, WhiteBoardServerVersion, "tcp"); // doubt
   if (clp == 0)
     goto error;
 
