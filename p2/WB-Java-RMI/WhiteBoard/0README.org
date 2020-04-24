@@ -1,0 +1,138 @@
+# -*- mode: org -*-
+# -*- org-export-html-postamble:t; -*-
+#+TITLE: A White Board Project using Java RMI
+#+AUTHOR: Prabhaker Mateti
+#+OPTIONS: toc:nil
+#+LINK_HOME: ../../
+#+LINK_UP: ../../Lectures
+#+DESCRIPTION: A White Board Project using Java RMI
+#+BIND: org-export-html-preamble-format (("en" "<a href=\"../../Top/\">CEG 7370</a>"))
+#+BIND: org-export-html-postamble-format (("en" "<hr size=1>Copyright &copy; 2014 %e &bull; <a href=\"http://www.wright.edu/~pmateti\">www.wright.edu/~pmateti</a> %d"))
+#+STYLE: <style> P {text-align: justify} code {font-family: monospace; font-size: 10pt;color: brown;} @media screen {BODY {margin: 10%} }</style>
+#+STARTUP:showeverything
+
+Please read [[http://cecs.wright.edu/~pmateti/Courses/7370/Projects/7370projects.html][7370 projects]] first.  This 0README is a supplement to the
+lectures.  It describes a bit of the philosophy behind the course and
+some details of the source code given to you as a start.
+
+This project implements the Whiteboard in Java using RMI, but leaves
+out a few pieces for you TODO.  It should work equally well on both
+Linux and Windows.  The overall behavior is similar to the 7370-C-RPC
+Whiteboard.
+
+* Compilation + Build
+
+I did not use any fancy IDE, but you are welcome to use 
+Intellij Idea, Eclipse, ...
+
+** Original v Generated Files
+
+Study the files in this order.
+
+#+begin_src bash
+   java7370.sh		// bash file, do: source java7370.sh
+   Invoke.java		// support methods 
+   LineCoords.java	// public data structure for a line 
+   LinesFrame.java	// our little window of lines 
+   LinesFrameImpl.java	// implementation of window of lines 
+   WbAdmin.java         // interface of wbadministrator 
+   WbServer.java	// interface of WhiteBoard server 
+   WbClient.java	// interface of WhiteBoard client 
+   WbClientImpl.java	// implementation of WhiteBoard client 
+   WbServerImpl.java	// implementation of WhiteBoard server 
+#+end_src
+
+** Simple Build
+
+Make sure your =CLASSPATH= includes =.= and =..= .  The =rmic= is similar to
+=rpcgen= but examines =.class= files, not =.java= files, in producing
+several =_Stub.class= files
+
+Make sure you are invoking the proper =javac= =java=, et al.  On OSIS
+Lab systems, there are multiple versions of JDK installed.  The =java
+javac rmic rmiregistry rmid= should all be from the same package and
+version.  =% which java= # check where your java JVM is located =%
+java -version=
+
+You can call =wb7370build= defined in =java7370.sh=.  This is the simplest,
+as =javac= subsumes some of the =Makefile= features.  Before invoking it,
+make sure you are in the parent dir of =*.java= files.
+
+* How to Run It
+
+Source =java7370.sh= to define the various =bash= methods used below.
+
+** java.policy
+
+JDK installations will have their own system wide =java.policy= file;
+e.g., on my machine the full path name is
+=/usr/lib/jvm/jdk1.7.0_45/jre/lib/security/java.policy= The
+=SocketPermission= s may not be good enough.  So, create a
+=~/java.policy= file in your home directory.  It can be much more
+detailed than the one below.
+
+#+begin_src bash
+% cat  << EOF > ~/java.policy
+grant {
+  permission java.net.SocketPermission "*:1024-65535", "connect,accept";
+  permission java.net.SocketPermission "*:80", "connect";
+};
+EOF
+#+end_src
+
+** rmiregistry
+
+Before starting the WB server and clients, do =wb7370rmi= to establish
+=rmiregistry=.
+
+For =rmiregistry=: If port 1099 is in use already, you need to make
+corresponding edits in =Invoke.java=.  
+
+** Starting the WB Servers and Clients
+
+There are several ways of running our Java WB program. =wb7370run=
+defined in =java7370.sh= is one such example that starts one server
+and two clients each on two boards.
+
+Server will print its URL, e.g.,
+=//localhost/S1=.
+
+
+In general, to start a client do: =% java WhiteBoard.WbClientImpl
+<idn> <boardnm> <displayMcnm> <URL-of-server>= The idn is an arbitrary
+non-neg integer used as a pseudo process id.  An example URL for the
+server is =//localhost/S1=.  The client will start a LinesFrame.
+
+Or you may invoke these text-interactively from =% java
+WhiteBoard.WbAdmin= The disadvantage here is that the =stdout= is then
+not seen.
+
+You may find the =pj= alias  defined in java7370.sh useful.
+
+** How Does It Work
+
+No client draws a line the moment you click in its window.  Instead,
+the client sends the coordinates to its server, the server informs all
+clients on this board, including this one, of this update.
+
+=pleaseDie()=: If we *really* die in a remote method, the caller will
+get an exception.  So, we make sure the method returns normally, and
+die a little later.
+
+=addClient()= occurs in =recvDisplayObj()=
+
+
+* Subtleties
+
+Window Expose(s): I did not find what the expose event is called in
+Java.  So did a work around using =public void
+windowActivated(WindowEvent e)= Please send me a better solution!
+So to see lines of a window that was just uncovered, click on the
+title bar.
+
+You may also find that occasionally some mouse clicks are "lost".
+
+I do not think it is worth our time to properly fix these.
+
+I did not focus at all on a nice GUI.  If that interests, by all means
+improve it.
