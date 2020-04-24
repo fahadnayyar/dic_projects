@@ -431,27 +431,27 @@ int* newserver_1_svc(struct NewServerMcNm * nsmn, struct svc_req * srq)
     static int result;
     char newServerMachineName[50]; 
     strcpy(newServerMachineName, nsmn->newServerMachineName);
-   
+       
     
-    // char hostbuffer[256]; // doubt 256? 
-    // char *IPbuffer; 
-    // struct hostent *host_entry; 
-    // int hostname; 
+  //   char hostbuffer[256]; // doubt 256? 
+  //   char *IPbuffer; 
+  //   struct hostent *host_entry; 
+  //   int hostname; 
   
-    // // To retrieve hostname 
-    // hostname = gethostname(hostbuffer, sizeof(hostbuffer)); 
-    // // checkHostName(hostname); 
+  //   // To retrieve hostname 
+  //   hostname = gethostname(hostbuffer, sizeof(hostbuffer)); 
+  //   // checkHostName(hostname); 
   
-    // // To retrieve host information 
-    // host_entry = gethostbyname(hostbuffer); 
-    // // checkHostEntry(host_entry); 
+  //   // To retrieve host information 
+  //   host_entry = gethostbyname(hostbuffer); 
+  //   // checkHostEntry(host_entry); 
   
-    // // To convert an Internet network 
-    // // address into ASCII string 
-    // IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0])); 
+  //   // To convert an Internet network 
+  //   // address into ASCII string 
+  //   IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0])); 
   
-    // printf("Hostname: %s\n", hostbuffer); 
-    // printf("Host IP: %s\n", IPbuffer); 
+  //   printf("Hostname: %s\n", hostbuffer); 
+  //   printf("Host IP: %s\n", IPbuffer); 
  
  
  
@@ -539,6 +539,11 @@ int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq)
   
   //* extracting board to transfer.
   ABoard *board_to_transfer =  find_wbp(xa->boardnm);
+  if (!board_to_transfer)
+  {
+    result = -1;
+    return result;
+  }
   printf("board in original server:\n");
   print_aboard(board_to_transfer);
   

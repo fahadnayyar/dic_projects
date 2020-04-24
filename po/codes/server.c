@@ -36,7 +36,7 @@ static void delete(ListNode ** hdr, ListNode * d)
 typedef struct AClient {
   struct AClient *next;
   ClientData clientdata;
-  CLIENT *callback;		/* rpc.h */
+  CLIENT *callback;		/* rpc.h */ // doubt ?
 } AClient;
 
 typedef struct ABoard {
@@ -100,12 +100,12 @@ error:
 }
 
 /*
- * Commit suicide!  Unregister yourself. Invoked as SIGALRM handler.
+ * Commit suicide!  Unregister yourself. Invoked as SIGALRM handler. // doubt: when is this handler registered?
  */
 static void die(int dummy)
 {
-  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion);
-  exit(x != 1);
+  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion); // doubt?
+  exit(x != 1); // doubt
 }
 
 static void delboard(ABoard * ab)

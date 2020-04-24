@@ -45,7 +45,7 @@ int getTransientProgNumber(int version)
   unsigned long prognum, i;
   for (i = 0; i < NATTEMPTS;) {
     prognum = findTransient(version);
-    printf("prognum: %lu\n",prognum);
+    printf("in transient.c: prognum: %lu\n",prognum);
     if (prognum > 0)
       return prognum;
 

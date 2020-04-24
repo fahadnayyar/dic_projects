@@ -21,7 +21,7 @@ main (int argc, char **argv)
 	{
 		printf("%s\n", argv[1]);
 		WhiteBoardServer = atoi(argv[1]); // doubt atoi or strtol 
-		printf("programnum in new server: %d\n", WhiteBoardServer);
+		// printf("programnum in new server: %d\n", WhiteBoardServer);
 		if (WhiteBoardServer <= 0) {
 			fprintf(stderr, "%s: getTransientProgNumber(%d) returned %d!\n",
 				argv[0], WhiteBoardServerVersion, WhiteBoardServer);

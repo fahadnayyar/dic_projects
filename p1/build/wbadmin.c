@@ -100,7 +100,7 @@ int transferBoard(struct XferWBArg a, CLIENT * clp)
   xa->nversion = a.nversion;
   strcpy(xa->boardnm, a.boardnm);
   strcpy(xa->machinenm, a.machinenm);
-  printf("transferboard in wbadmin: %d %d %d %d\n", xa->nprogram, xa->nversion, xa->.nversion, xa->nprogram);
+  printf("transferboard in wbadmin: %d %d %d %d\n", xa->nprogram, xa->nversion, xa->nversion, xa->nprogram);
   int ret = *transferwhiteboard_1(xa, clp); // doubt.
   if (ret==-1)
   {
