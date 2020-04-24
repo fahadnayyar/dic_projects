@@ -161,7 +161,7 @@ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
   if (q == NULL)
     goto error;
   q->clientdata = *cd;
-  printf("asli: %s, %d, %d\n", cd->machinenm, cd->nprogram, cd->nversion);
+  // printf("asli: %s, %d, %d\n", cd->machinenm, cd->nprogram, cd->nversion);
   q->callback =
       clnt_create(cd->machinenm, cd->nprogram, cd->nversion, "tcp"); // doubt
   if (q->callback == NULL) {
