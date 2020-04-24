@@ -1,0 +1,36 @@
+/main.*/
+-1,+3d
+i
+#undef WhiteBoardServer
+int getTransientProgNumber(int version);
+
+int
+main (int argc, char **argv)
+{
+	register SVCXPRT *transp;
+	int WhiteBoardServer;
+    if (argc<2)
+	{
+		WhiteBoardServer = getTransientProgNumber(WhiteBoardServerVersion);
+		if (WhiteBoardServer <= 0) {
+			fprintf(stderr, "%s: getTransientProgNumber(%d) returned %d!\n",
+				argv[0], WhiteBoardServerVersion, WhiteBoardServer);
+			exit(2);
+		}
+	}else
+	{
+		printf("%s\n", argv[1]);
+		WhiteBoardServer = atoi(argv[1]); // doubt atoi or strtol 
+		printf("programnum in new server: %d\n", WhiteBoardServer);
+		if (WhiteBoardServer <= 0) {
+			fprintf(stderr, "%s: getTransientProgNumber(%d) returned %d!\n",
+				argv[0], WhiteBoardServerVersion, WhiteBoardServer);
+			exit(2);
+		}
+	}         
+
+.
+
+.
+w
+q
