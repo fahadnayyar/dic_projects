@@ -1,3 +1,5 @@
+To understand the code changes please look at changes_diff.txt (git diff from p0). Note that this diff does not include any assertions.
+
 files added:
     ed-script1.txt: 
 

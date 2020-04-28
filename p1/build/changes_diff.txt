@@ -1,0 +1,1455 @@
+diff --git a/p1/build/.vscode/settings.json b/p1/build/.vscode/settings.json
+new file mode 100644
+index 0000000..2ee6cbb
+--- /dev/null
++++ b/p1/build/.vscode/settings.json
+@@ -0,0 +1,5 @@
++{
++    "files.associations": {
++        "in.h": "c"
++    }
++}
+\ No newline at end of file
+diff --git a/p1/build/Makefile b/p1/build/Makefile
+index af2deb0..1bbb058 100644
+--- a/p1/build/Makefile
++++ b/p1/build/Makefile
+@@ -4,15 +4,15 @@
+ # end-of-line comments are helpful in non-Linux OS
+ 
+ CURRENT_DIR=build
+-SOBJ = server.o server_svc.o client_clnt.o server_xdr.o
++SOBJ = server.o transient.o server_s.o client_clnt.o server_clnt.o server_xdr.o
+ COBJ = client.o transient.o server_clnt.o client_s.o server_xdr.o xwindow.o
+ # doubt: why DBSD_SIGNALS is comented?
+ CFLAGS =  -Wall -pedantic -ansi -std=c99 # -DBSD_SIGNALS 
+ # doubt: what version of gcc should I use? By default it is using gcc-7.
+ CC = gcc
+ 
+-all: server7370 client7370 deregall7370 xwindow7370
+-	@ ls -l server7370 client7370 xwindow7370 deregall7370
++all: server7370 client7370 deregall7370 xwindow7370 wbadmin7370
++	@ ls -l server7370 client7370 xwindow7370 deregall7370 wbadmin7370
+ 
+ xwindow7370: xwindow.c
+ 	# doubt: why not -O3? What is DMAIN? What is -lx11?
+@@ -40,26 +40,30 @@ client_s.c: client_svc.c
+ 	cp -f client_svc.c client_s.c
+ 	ed client_s.c < ed-script.txt 2> /dev/null > /dev/null
+ 
++server_s.c: server_svc.c
++	cp -f server_svc.c server_s.c
++	ed server_s.c < ed-script1.txt 2> /dev/null > /dev/null
++
+ #doubt: use of make print?
+ print:
+ 	enscript -B -fCourier8 -2r Makefile 0README.txt \
+ 		server.x server.c client.x  client.c
+ 
++wbadmin7370: wbadmin.c server_clnt.o server_xdr.o
++	gcc -c wbadmin.c -std=c99  -o wbadmin.o
++	gcc -o wbadmin7370 wbadmin.o server_clnt.o server_xdr.o -lX11
++
+ #doubt: use of make indent? What is this indent comand?
+ indent:
+-	indent -kr -di1 client.c client.x server.c server.x xwindow.c
+-
+-wbadmin: wbadmin.c wbadmin7370 wbadmin.o
+-# 	gcc -c wbadmin.c -std=c99  -o wbadmin.o
+-	gcc -o wbadmin7370 wbadmin.c server_clnt.o server_xdr.o -lX11
++	indent -kr -di1 client.c client.x server.c server.x xwindow.c wbadmin.c
+ 
+ tar archive: clean
+ 	(cd ..; tar cvvfj $(CURRENT_DIR)-`date +%G%m%d%H%M`.tbz $(CURRENT_DIR))
+ 
+ clean:
+ 	rm -f *.o *.BAK *~ *.out *_svc.c *_clnt.c *_xdr.c \
+-		server7370 client7370 xwindow7370 deregall7370 wbadmin7370\
+-		client_s.c server.h client.h
++		server7370 client7370 xwindow7370 deregall7370 wbadmin7370 \
++		client_s.c server.h client.h server_s.c
+ 
+ # -eof-
+ 
+diff --git a/p1/build/ReadmeMyp1.md b/p1/build/ReadmeMyp1.md
+new file mode 100644
+index 0000000..4edcae8
+--- /dev/null
++++ b/p1/build/ReadmeMyp1.md
+@@ -0,0 +1,49 @@
++files added:
++    ed-script1.txt: 
++
++Files modified:
++    wbadmin.c
++    server.x
++    client.x
++    server.c
++    client.c
++    Makefile
++    ed-script.txt
++
++Some key modifications:
++    1.) Now each server on startup gets a new rpc program number from transient.c. 
++        This is done as now on same machine 2 servers can exist.
++    2.) Every client now have to supply rpc program number to connect to a server along with 
++        server's machine name.
++    3.) make now builds administritive client wbadmin7370.    
++
++build:
++    make clean ; make
++
++usage:
++    To start a server:
++        ./server7370
++
++    To start a client on a board:
++        
++        ./client7370 <server-hostname> <server-program-num-in-hex> <wb-name> <X11-display-hostname> <color-integer>
++        
++        eg: ./client7370 localhost 40000005 b3 localhost ff0000 
++
++    To start a new server via wbadmin:
++    
++        ./wbadmin7370 -n <existing-server-machine-nm> <prognum-in-hex> <new-server-machine-nm>
++    
++        eg: ./wbadmin7370 -n 127.0.0.1 40000000 127.0.0.1
++
++    To transfer a board from one server to another using wbadmin:
++      
++        ./wbadmin7370 -t <from-server-machine-nm> <prognum-in-hex> <wb-nm> <to-server-machine-nm> <prognum>
++
++        eg: ./wbadmin7370 -t 127.0.0.1 40000000 b4 127.0.0.1 40000005
++
++    To queary a server via wbadmin:
++    
++        ./wbadmin7370 -q <server-machine-nm> <prognum-in-hex>
++
++        eg: ./wbadmin7370 -q 127.0.0.1 40000005
+\ No newline at end of file
+diff --git a/p1/build/client.c b/p1/build/client.c
+index 5f050c7..7ade5f1 100644
+--- a/p1/build/client.c
++++ b/p1/build/client.c
+@@ -18,68 +18,103 @@ static CLIENT *clp;		/* librpc clnt_create()-ed */ // doubt
+ /*
+  * Terminate the client.  Remove all traces of the parent+child
+  */
++// parent function.
+ static void endtheclient(int unused)
+ {
+-  assert(1); //* doubt
+-  delclient_1(&me.clientdata, clp); /* ask server to delete me */
+-  clnt_destroy(clp);		/* CLIENT structure */
+-  pmap_unset(me.clientdata.nprogram, me.clientdata.nversion);
++  // assert(1); //* doubt
++  delclient_1(&me.clientdata, clp); /* ask server to delete me */ // doubt
++  // parent.
++  clnt_destroy(clp);		/* CLIENT structure */ // doubt
++  pmap_unset(me.clientdata.nprogram, me.clientdata.nversion); // doubt
+   closexwindow();
+   kill(childid, SIGTERM);
+-  assert(1); //* doubt
++  // assert(1); //* doubt
+   exit(0);
+-  assert(0); //* this should be unreachable. 
++  // assert(0); //* this should be unreachable. 
+ }
+ 
++
+ /*
+  * Get the call back from the server who is sending the coordinates of
+  * a line to draw.  We simply write these four integers into the
+  * xwinio pipe, and raise the signal so the parent can read.
+  */
++// child
+ void *callbackfromwbs_1_svc(OneLn * p)
+ {
+-  assert(p); //* doubt
++  // assert(p); //* doubt
+   static int i = 0;		/* note: static */
+ 
+   write(xwinio[1], p, sizeof(OneLn));
+   kill(parentid, SIGUSR1);	/* kill == "raise" */
+-  assert(1); //* doubt
++  // assert(1); //* doubt
++  return (void *) &i;
++}
++
++/*
++ * Get the call back from the server who is transfering this client's board to another server.
++ * We simply close the rpc handle to that server and ask the parent process to open rpc handle to 
++ * the new server by writing new server's info in inxwinio pipe, and raise the signal so the parent can read.
++ */
++// child
++void *addnewserverconnection_1_svc(struct XferWBArg * xa, struct svc_req * srq)
++{
++  static int i = 0;		/* note: static */
++  printf("In client child process: xa.boardname: %s, xa.machinemane: %s, xa.nprogram: %d, xa.nversion: %d\n", xa->boardnm, xa->machinenm, xa->nprogram, xa->nversion );
++  write(xwinio[1], xa, sizeof(struct XferWBArg));
++  kill(parentid, SIGUSR2);	/* kill == "raise" */
+   return (void *) &i;
+ }
+ 
++/*
++ * Invoked via addnewserverconnection_1_svc/SIGUSR2 when a new server info comes from the
++ * previous server to the svc_run()-ning process.
++ */
++// parent.
++static void readndchangeserver(int unused)
++{
++  struct XferWBArg xa;
++  (void) read(xwinio[0], &xa, sizeof(xa));
++  printf("In client parent process: xa.boardname: %s, xa.machinemane: %s, xa.nprogram: %d, xa.nversion: %d\n", xa.boardnm, xa.machinenm, xa.nprogram, xa.nversion );
++  clnt_destroy(clp);		/* CLIENT structure */ // doubt
++  clp = clnt_create(xa.machinenm, xa.nprogram, xa.nversion, "tcp");
++}
++
+ /*
+  * Invoked via callbackfromwbs/SIGUSR1 when a new line comes from the
+  * server to the svc_run()-ning process.
+  */
++// parent.
+ static void readndraw(int unused)
+ {
+-  assert(1); //*
++  // assert(1); //*
+   OneLn lc;
+ 
+   (void) read(xwinio[0], &lc, sizeof(lc));
+   drawline(&lc);
+-  assert(1); //*
++  // assert(1); //*
+ }
+ 
+ /*
+  * Client window got exposed.  Redraw the lines.
+  */
+-static void exposedwindow(CLIENT * clp)
++// parent.
++static void exposedwindow()
+ {
+-  assert(clp); //*
++  // parent.
+   Linep p, *q = sendallmylines_1(&me.clientdata, clp);
+   int n = 0;
+ 
+   if (q == NULL)
+   {
+-    assert(1);
++    // assert(1);
+     return;
+   }
+   for (p = *q; p; p = p->next) {
+     drawline(&p->ln);
+     n++;
+   }
+-  assert(1); //*_
++  // assert(1); //*_
+ }
+ 
+ /*
+@@ -87,9 +122,8 @@ static void exposedwindow(CLIENT * clp)
+  * Pressing buttons 1 (left) or 2 (middle) sends the line to the
+  * server who will distribute it to all member white boards.
+  */
+-static void mousewatch(CLIENT * clp)
++static void mousewatch()
+ {
+-  assert(clp);
+   int btn = 5;
+ 
+   for (;;)
+@@ -97,20 +131,21 @@ static void mousewatch(CLIENT * clp)
+ 	case 1:
+ 	case 2:
+ 	  me.ln.color = me.clientdata.color;
+-	  addline_1(&me, clp);
++	  // parent.
++    addline_1(&me, clp);
+ 	  btn = 0;
+ 	  break;
+ 	case 3:
+ 	  return;		/* <== */
+ 	case 5:
+-	  exposedwindow(clp);
++	  exposedwindow();
+ 	  btn = 0;
+ 	  break;
+ 	default:
+ 	  btn = trackpointer(&me.ln, 0);
+ 	  break;
+     }
+-    assert(1);
++    // assert(1);
+ }
+ 
+ /*
+@@ -118,13 +153,13 @@ static void mousewatch(CLIENT * clp)
+  */
+ void startclient
+     (int nprogram, int nversion,
+-     char *servermcnm, char *boardnm, char *xdisplaynm, char *pmcolor) {
+-  assert(servermcnm && boardnm && xdisplaynm && pmcolor);
++     char *servermcnm, int serverprognum, char *boardnm, char *xdisplaynm, char *pmcolor) {
++  // assert(servermcnm && boardnm && xdisplaynm && pmcolor);
+   /* clients own details -- once set, these do not change */
+   me.clientdata.color = atoir(pmcolor, 16);
+   me.clientdata.nprogram = nprogram;
+   me.clientdata.nversion = nversion;
+-  gethostname(me.clientdata.machinenm, sizeof(me.clientdata.machinenm));
++  gethostname(me.clientdata.machinenm, sizeof(me.clientdata.machinenm)); // doubt
+   strcpy(me.clientdata.boardnm, boardnm);
+   strcpy(me.clientdata.xdisplaynm, xdisplaynm);
+   strcat(me.clientdata.xdisplaynm, ":0.0");
+@@ -134,26 +169,28 @@ void startclient
+ 	  boardnm, me.clientdata.machinenm, me.clientdata.color);
+ 
+   clp = clnt_create
+-      (servermcnm, WhiteBoardServer, WhiteBoardServerVersion, "tcp");
++      (servermcnm, serverprognum, WhiteBoardServerVersion, "tcp"); // doubt
+   if (!clp) {
+     fprintf(stderr,
+-	    "client730: clnt_create(%s,0x%x,0x%x,%s) failed.\n",
+-	    servermcnm, WhiteBoardServer, WhiteBoardServerVersion, "tcp");
++	    "1client730: clnt_create(%s,0x%x,0x%x,%s) failed.\n",
++	    servermcnm, serverprognum, WhiteBoardServerVersion, "tcp");
+     exit(1);
+-    assert(0); //* unreachable
++    // assert(0); //* unreachable
+   }
+ 
++
++
+   if (pipe(xwinio) == -1) {
+     fprintf(stderr, "client730: xindow io pipe failed.\n");
+     exit(2);
+-    assert(0); //* unreachable
++    // assert(0); //* unreachable
+   }
+ 
+   childid = fork();
+   if (childid == -1) {
+     fprintf(stderr, "client730: fork was unsuccessful.\n");
+     exit(3);
+-    assert(0); //* unreachable
++    // assert(0); //* unreachable
+   }
+   if (childid == 0) {
+     /* the child process */
+@@ -165,7 +202,7 @@ void startclient
+   /* parent process continues */
+ 
+   {				/* setup signal handling */
+-    struct sigaction asigterm, asiguser;
++    struct sigaction asigterm, asiguser, asiguser2;
+     asigterm.sa_handler = endtheclient;
+     asigterm.sa_flags = 0;
+     sigemptyset(&asigterm.sa_mask);
+@@ -175,6 +212,11 @@ void startclient
+     asiguser.sa_flags = 0;
+     sigemptyset(&asiguser.sa_mask);
+     sigaction(SIGUSR1, &asiguser, 0);
++
++    asiguser2.sa_handler = readndchangeserver;
++    asiguser2.sa_flags = 0;
++    sigemptyset(&asiguser2.sa_mask);
++    sigaction(SIGUSR2, &asiguser2, 0);
+   }
+ 
+   close(xwinio[1]);
+@@ -184,8 +226,8 @@ void startclient
+ 	    me.clientdata.xdisplaynm, xwintitle, x);
+     exit(4);
+   }
+-  addclient_1(&me.clientdata, clp);
+-  mousewatch(clp);	    /* returns only when button3 is clicked */
++  addclient_1(&me.clientdata, clp); // doubt
++  mousewatch();	    /* returns only when button3 is clicked */
+   endtheclient(0);
+ }
+ 
+diff --git a/p1/build/client.x b/p1/build/client.x
+index b24a178..ce44bcd 100644
+--- a/p1/build/client.x
++++ b/p1/build/client.x
+@@ -3,9 +3,20 @@
+ 
+ #include "oneln.h"
+ 
++#define NMSZ	50
++
++struct XferWBArg {
++  char boardnm[NMSZ];		/* board name to be transferred */
++  char machinenm[NMSZ];		/* name of the receiving machine */
++  int nprogram;			/* rpc prog num of the server above (receiving server program number) */
++  int nversion;			/* registered version number */
++};
++
++
+ program WhiteBoardClient {
+   version WhiteBoardClientVersion {
+     void callbackfromwbs(OneLn) = 1;
++    void addnewserverconnection(XferWBArg) = 2;
+   } = 1;
+ } = 0x20000999;			/* replaced by gettransient() value */
+ 
+diff --git a/p1/build/ed-script.txt b/p1/build/ed-script.txt
+index 951f1a3..ff24e82 100644
+--- a/p1/build/ed-script.txt
++++ b/p1/build/ed-script.txt
+@@ -3,7 +3,7 @@
+ i
+ #undef WhiteBoardClient
+ int getTransientProgNumber(int version);
+-void startclient(int, int, char *, char *, char *, char *);
++void startclient(int, int, char *, int, char *, char *, char *);
+ 
+ 
+ int main(int argc, char *argv[])
+@@ -11,8 +11,8 @@ int main(int argc, char *argv[])
+ 	SVCXPRT *transp;
+ 	int WhiteBoardClient;
+ 
+-	if (argc < 5) {
+-	    fprintf(stderr, "usage: %s <server-hostname> <wb-name> <X11-display-hostname> <color-integer>\n",
++	if (argc < 6) {
++	    fprintf(stderr, "usage: %s <server-hostname> <server-program-num> <wb-name> <X11-display-hostname> <color-integer>\n",
+ 		    argv[0]);
+ 	    exit(1);
+ 	}
+@@ -25,11 +25,11 @@ int main(int argc, char *argv[])
+ 	}
+ .
+ /svc_run/i
+-	fprintf(stderr,	"startclient(%d, %d, %s, %s, %s, %s)\n",
++	fprintf(stderr,	"startclient(%d, %d, %s, %ld, %s, %s, %s)\n",
+ 			WhiteBoardClient, WhiteBoardClientVersion,
+-			argv[1], argv[2], argv[3], argv[4]);
+-	startclient(WhiteBoardClient, WhiteBoardClientVersion, 
+-				      argv[1], argv[2], argv[3], argv[4]);
++			argv[1], strtol(argv[2], 0, 16), argv[3], argv[4], argv[5]);
++	startclient(WhiteBoardClient, WhiteBoardClientVersion,  
++				      argv[1], strtol(argv[2], 0, 16), argv[3], argv[4], argv[5]);
+ 
+ .
+ w
+diff --git a/p1/build/ed-script1.txt b/p1/build/ed-script1.txt
+new file mode 100644
+index 0000000..937f31d
+--- /dev/null
++++ b/p1/build/ed-script1.txt
+@@ -0,0 +1,36 @@
++/main.*/
++-1,+3d
++i
++#undef WhiteBoardServer
++int getTransientProgNumber(int version);
++
++int
++main (int argc, char **argv)
++{
++	register SVCXPRT *transp;
++	int WhiteBoardServer;
++    if (argc<2)
++	{
++		WhiteBoardServer = getTransientProgNumber(WhiteBoardServerVersion);
++		if (WhiteBoardServer <= 0) {
++			fprintf(stderr, "%s: getTransientProgNumber(%d) returned %d!\n",
++				argv[0], WhiteBoardServerVersion, WhiteBoardServer);
++			exit(2);
++		}
++	}else
++	{
++		printf("%s\n", argv[1]);
++		WhiteBoardServer = atoi(argv[1]); // doubt atoi or strtol 
++		// printf("programnum in new server: %d\n", WhiteBoardServer);
++		if (WhiteBoardServer <= 0) {
++			fprintf(stderr, "%s: getTransientProgNumber(%d) returned %d!\n",
++				argv[0], WhiteBoardServerVersion, WhiteBoardServer);
++			exit(2);
++		}
++	}         
++
++.
++
++.
++w
++q
+diff --git a/p1/build/server.c b/p1/build/server.c
+index 961592a..5cf4922 100644
+--- a/p1/build/server.c
++++ b/p1/build/server.c
+@@ -2,6 +2,9 @@
+ /* server.c */
+ 
+ #include "wb.h"
++#include <netdb.h> 
++#include <netinet/in.h> 
++#include <arpa/inet.h> 
+ 
+ /*
+  * Generic node in a singly-linked list
+@@ -61,11 +64,11 @@ static int is_not_circular(ListNode* hdr)
+ 
+ static void insert(ListNode ** hdr, ListNode * p)
+ {
+-  assert(is_not_circular((ListNode*)hdr) && p); //*
++  // assert(is_not_circular((ListNode*)hdr) && p); //*
+   ListNode** hdr_old = hdr;  //* for assertions.
+   if (hdr == NULL)
+   {
+-    assert(1); //*
++    // assert(1); //*
+     return;
+   }
+   ListNode * first_element;
+@@ -77,7 +80,7 @@ static void insert(ListNode ** hdr, ListNode * p)
+     first_element = ((ListNode *)hdr)->next->next;  //* for assertions.
+   p->next = *hdr;
+   *hdr = p;
+-  assert(is_not_circular((ListNode*)hdr) && hdr==hdr_old && isSameExceptHead(*hdr,first_element)); //*
++  // assert(is_not_circular((ListNode*)hdr) && hdr==hdr_old && isSameExceptHead(*hdr,first_element)); //*
+ }
+ 
+ //* for assertion
+@@ -94,7 +97,7 @@ static int is_not_present(ListNode* hdr, ListNode* d)
+ 
+ static void delete(ListNode ** hdr, ListNode * d)
+ { 
+-  assert(is_not_circular((ListNode*)hdr) && d); //* doubt
++  // assert(is_not_circular((ListNode*)hdr) && d); //* doubt
+   ListNode *p, *q;
+ 
+   if (hdr == NULL || *hdr == NULL)
+@@ -103,11 +106,11 @@ static void delete(ListNode ** hdr, ListNode * d)
+     if (q == d) {
+       p->next = q->next;
+       free(q);
+-      assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
++      // assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
+       return;
+     }
+   }
+-  assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
++  // assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
+ }
+ 
+ typedef struct AClient {
+@@ -129,7 +132,7 @@ static ABoard *boards = NULL;	/* list of boards that server has */
+ 
+ static ABoard *find_wbp(char *nm)
+ {
+-  assert(nm); //*
++  // assert(nm); //*
+   ABoard *p;
+ 
+   for (p = boards; p; p = p->next) {
+@@ -138,7 +141,7 @@ static ABoard *find_wbp(char *nm)
+       break;
+     }
+   }
+-  assert(!p || strcmp(nm, p->clients->clientdata.boardnm) == 0); //*
++  // assert(!p || strcmp(nm, p->clients->clientdata.boardnm) == 0); //*
+   return p;
+ }
+ 
+@@ -148,7 +151,7 @@ static ABoard *find_wbp(char *nm)
+  */
+ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
+ {
+-  assert(cd); //* doubt
++  // assert(cd); //* doubt
+   static int result;		/* note: static */
+   ABoard *ab = find_wbp(cd->boardnm);
+   AClient *q = (AClient *) malloc(sizeof(AClient));
+@@ -158,8 +161,9 @@ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
+   if (q == NULL)
+     goto error;
+   q->clientdata = *cd;
++  // printf("asli: %s, %d, %d\n", cd->machinenm, cd->nprogram, cd->nversion);
+   q->callback =
+-      clnt_create(cd->machinenm, cd->nprogram, cd->nversion, "tcp");
++      clnt_create(cd->machinenm, cd->nprogram, cd->nversion, "tcp"); // doubt
+   if (q->callback == NULL) {
+     free(q);
+     goto error;
+@@ -175,11 +179,11 @@ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
+   }
+   insert((ListNode **) & ab->clients, (ListNode *) q);
+   result = 0;
+-  assert(!is_not_present((ListNode*)boards, (ListNode*)ab) && !is_not_present((ListNode*)(ab->clients),(ListNode*)q) && !result); //* doubt
++  // assert(!is_not_present((ListNode*)boards, (ListNode*)ab) && !is_not_present((ListNode*)(ab->clients),(ListNode*)q) && !result); //* doubt
+   return &result;
+ error:
+   result = -1;
+-  assert(result==-1); //* doubt
++  // assert(result==-1); //* doubt
+   return &result;
+ }
+ 
+@@ -188,15 +192,15 @@ error:
+  */
+ static void die(int dummy)
+ {
+-  assert(1); //*
+-  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion);
++  // assert(1); //*
++  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion); // doubt
+   exit(x != 1);
+-  assert(1); //*
++  // assert(1); //*
+ }
+ 
+ static void delboard(ABoard * ab)
+ {
+-  assert(!ab);
++  // assert(ab);
+   ALine *lp, *lq;
+ 
+   for (lp = ab->lines; lp; lp = lq) {
+@@ -204,7 +208,7 @@ static void delboard(ABoard * ab)
+     free(lp);
+   }
+   delete((ListNode **) & boards, (ListNode *) ab);
+-  assert(is_not_present((ListNode*)boards, (ListNode*)ab) && !ab->lines);
++  // assert(is_not_present((ListNode*)boards, (ListNode*)ab) && !ab->lines);
+ }
+ 
+ /*
+@@ -213,7 +217,7 @@ static void delboard(ABoard * ab)
+  */
+ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
+ {
+-  assert(cd); //* doubt
++  // assert(cd); //* doubt
+   static int result;		/* note: static */
+   AClient *p;
+   ABoard *ab = find_wbp(cd->boardnm);
+@@ -225,7 +229,7 @@ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
+   for (p = ab->clients; p; p = p->next) {
+     if (p->clientdata.nprogram == cd->nprogram
+ 	&& strcmp(p->clientdata.machinenm, cd->machinenm) == 0) {
+-      clnt_destroy(p->callback);
++      clnt_destroy(p->callback); // doubt
+       delete((ListNode **) & ab->clients, (ListNode *) p);
+       if (ab->clients == NULL)
+       	delboard(ab);
+@@ -247,7 +251,7 @@ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
+   return &result;
+ error:
+   result = -1;
+-  assert(1); //* doubt
++  // assert(1); //* doubt
+   return &result;
+ }
+ 
+@@ -257,7 +261,7 @@ error:
+  */
+ int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
+ {
+-  assert(ap); //*
++  // assert(ap); //*
+   static int result;		/* note: static */
+   AClient *p;
+   ALine *lp = (ALine *) malloc(sizeof(ALine));
+@@ -272,14 +276,14 @@ int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
+ 
+   /* tell all clients on this board of this addition */
+   for (p = ab->clients; p; p = p->next) {
+-    callbackfromwbs_1(&ap->ln, p->callback);
++    callbackfromwbs_1(&ap->ln, p->callback); // doubt
+   }
+   result = 0;
+-  assert(!is_not_present((ListNode* )ab->lines,lp)); //*
++  // assert(!is_not_present((ListNode* )ab->lines,lp)); //*
+   return &result;
+ error:
+   result = -1;
+-  assert(is_not_present((ListNode*)boards,(ListNode*)ab)); //* 
++  // assert(is_not_present((ListNode*)boards,(ListNode*)ab)); //* 
+   return &result;
+ }
+ 
+@@ -288,11 +292,456 @@ error:
+  */
+ Linep *sendallmylines_1_svc(ClientData * cd, struct svc_req * srq)
+ {
+-  assert(cd); //*
++  // assert(cd); //*
+   static ALine *lp = NULL;	/* note: static */
+   ABoard *ab = find_wbp(cd->boardnm);
+-  assert(!ab || !is_not_present((ListNode*)boards,(ListNode*)ab)); //*
++  // assesrt(!ab || !is_not_present((ListNode*)boards,(ListNode*)ab)); //*
+   return (ab ? &ab->lines : &lp);
+ }
+ 
++
++/*
++ * A client wants to query all the boards present on this server along with all the 
++ * clients and lines on that board.
++ */
++struct BBoard * query_1_svc(int * unused, struct svc_req * srq) 
++{  
++  //* debugging.
++  printf("in server: query_1_svc\n");
++  
++  //* initializing current_board_head and current_board_tail.
++  struct BBoard *current_board_head = (struct BBoard *) malloc(sizeof(struct BBoard));  
++  current_board_head->clients = NULL; current_board_head->lines = NULL; current_board_head->next = NULL;
++  struct BBoard *current_board_tail = current_board_head;
++  
++  //* debugging.
++  printf("%p\n", current_board_head);
++  
++  //* loop to copy boards into current_board_head.
++  ABoard *p;
++  for (p = boards; p; p = p->next) 
++  {
++    //* debugging.
++    // printf("1st for loop\n");
++    
++    //* initializing current_board.
++    struct BBoard * current_board = (struct BBoard *) malloc(sizeof(struct BBoard));
++    current_board->next = NULL; current_board->lines = NULL; current_board->clients = NULL;
++    
++    //* initializing current_client_head and current_client_tail.
++    struct BClient * current_client_head = (struct BCLient *) malloc(sizeof(struct BClient)); 
++    current_client_head->next = NULL; current_client_head->clientdata = NULL;
++    struct BClient * current_client_tail = current_client_head;
++    
++    //* loop to copy p->clients to current_board->clients.
++    AClient * q;
++    for (q = p->clients ; q ; q=q->next)
++    { 
++      //* debugging.
++      // printf("2nd for loop\n");
++      
++      //* initializing current_client.
++      struct BClient * current_client = (struct BCLient *) malloc(sizeof(struct BClient));  
++      current_client->next = NULL ; current_client->clientdata = NULL;
++      
++      //* initializing current_client_data and copying q->clientdata to current_client->clientdata. 
++      ClientData * current_client_data = (ClientData*)malloc(sizeof(ClientData)); // initialization?
++      strcpy(current_client_data->boardnm, q->clientdata.boardnm);
++      strcpy(current_client_data->machinenm, q->clientdata.machinenm);
++      strcpy(current_client_data->xdisplaynm, q->clientdata.xdisplaynm);
++      current_client_data->color = q->clientdata.color;
++      current_client_data->nprogram = q->clientdata.nprogram;
++      current_client_data->nversion = q->clientdata.nversion;
++      
++      //* strttign clientdata of current_client.
++      current_client->clientdata = current_client_data;
++
++      //* putting current client at the end of client linked list.
++      current_client_tail->next = current_client;
++      current_client_tail = current_client;
++    }
++    
++    //* putting client_client_head->next to current_board->clients.
++    current_client_head = current_client_head->next;
++    current_board->clients = current_client_head;
++    
++    //* debugging.
++    printf("clients copied!\n");
++
++            // * initializing current_line_head and current_line_tail.
++            struct ALine * current_line_head = (struct ALine*) malloc(sizeof(struct ALine));
++            current_line_head->next = NULL; 
++            current_line_head->ln.x1=0; 
++            current_line_head->ln.x2=0; 
++            current_line_head->ln.y1=0; 
++            current_line_head->ln.y2=0; 
++            current_line_head->ln.color=0;
++            struct ALine * current_line_tail = current_line_head;
++
++            //* for loop to copy p->lines to current_board->lines. 
++            ALine *r;
++            for (r = p->lines; r ; r=r->next)
++            {
++              //* debugging.
++              // printf("3rd for loop\n");
++              
++              //* initializing current_line.
++              struct ALine * current_line = (struct ALine*) malloc(sizeof(struct ALine));    
++              current_line->next = NULL; //current_line->ln = NULL; // doubt
++              current_line->ln.x1 = r->ln.x1; 
++              current_line->ln.x2 = r->ln.x2; 
++              current_line->ln.y1 = r->ln.y1; 
++              current_line->ln.y2 = r->ln.y2;
++              current_line->ln.color = r->ln.color;
++              
++              //* putting current line at the end of line linked list.
++              current_line_tail->next = current_line;
++              current_line_tail = current_line;
++            }
++            
++            //* putting current_line_head-> next into current_board->lines.
++            current_line_head = current_line_head->next;
++            current_board->lines = current_line_head;
++            
++            //* debugging.
++            // printf("lines copied!\n");
++
++    //* putting current_board in the end of current_board linked list.  
++    current_board_tail->next = current_board;
++    current_board_tail = current_board;
++  }
++  
++
++  //* debugging.
++  printf("boards copied!\n");
++
++  //* correcting dummy current_board_head.
++  current_board_head = current_board_head->next;
++  
++  return current_board_head;
++}
++
++int getTransientProgNumber(int version);
++
++/*
++ * A client wants to start a new server on this machine.
++ */
++int* newserver_1_svc(struct NewServerMcNm * nsmn, struct svc_req * srq) 
++{
++    static int result;
++    char newServerMachineName[50]; 
++    strcpy(newServerMachineName, nsmn->newServerMachineName);
++       
++    
++  //   char hostbuffer[256]; // doubt 256? 
++  //   char *IPbuffer; 
++  //   struct hostent *host_entry; 
++  //   int hostname; 
++  
++  //   // To retrieve hostname 
++  //   hostname = gethostname(hostbuffer, sizeof(hostbuffer)); 
++  //   // checkHostName(hostname); 
++  
++  //   // To retrieve host information 
++  //   host_entry = gethostbyname(hostbuffer); 
++  //   // checkHostEntry(host_entry); 
++  
++  //   // To convert an Internet network 
++  //   // address into ASCII string 
++  //   IPbuffer = inet_ntoa(*((struct in_addr*) host_entry->h_addr_list[0])); 
++  
++  //   printf("Hostname: %s\n", hostbuffer); 
++  //   printf("Host IP: %s\n", IPbuffer); 
++ 
++ 
++ 
++ 
++  // char myMachineNm[50];
++  // gethostname(myMachineNm, sizeof(myMachineNm));
++  // printf("IPbuffer: %s, newServerMachineName: %s\n", IPbuffer, newServerMachineName);
++  // if (strcmp(newServerMachineName, IPbuffer ) ==0 ) // doubt. How to correct?
++  {
++    int  newprognum = getTransientProgNumber(WhiteBoardServerVersion);
++    int id = fork();
++    if (id==0)
++    {
++      // child process.
++      char parameter[50]; 
++      sprintf(parameter, "%d", newprognum); 
++      printf("prigramnum in child process: %s\n", parameter);
++      char* arr[] = {"server7370", parameter, NULL};
++      execv("./server7370", arr);
++      assert(0);
++    }
++    printf("programnum in parent process: %d\n", newprognum);
++    result = newprognum;
++    return &result;
++  }
++  
++  // printf("ERROR: cannot start new server on a different machine!\n");
++  
++  result = -1;
++  return &result;
++  
++}
++
++//* for debugging.
++void print_bboard(BBoard* board)
++{
++  printf("clinets:\n");
++  BClient * cl;
++  for (cl=board->clients; cl; cl=cl->next)
++  {
++    printf("board: %s, ip: %s, prognum: %d, color: %ld\n",cl->clientdata->boardnm, cl->clientdata->machinenm, cl->clientdata->nprogram, cl->clientdata->color);
++  }
++  printf("lines:\n");
++  ALine * ll;
++  for(ll=board->lines; ll; ll=ll->next)
++  {
++    printf("x1: %d, x2: %d, y1: %d, y2: %d, color: %ld\n",ll->ln.x1, ll->ln.x2, ll->ln.y1, ll->ln.y2, ll->ln.color);
++  }
++}
++
++//* for debugging.
++void print_aboard(ABoard* board)
++{
++  printf("clinets:\n");
++  AClient * cl;
++  for (cl=board->clients; cl; cl=cl->next)
++  {
++    printf("board: %s, ip: %s, prognum: %d, color: %ld, clp: %p\n",cl->clientdata.boardnm, cl->clientdata.machinenm, cl->clientdata.nprogram, cl->clientdata.color, cl->callback);
++  }
++  printf("lines:\n");
++  ALine * ll;
++  for(ll=board->lines; ll; ll=ll->next)
++  {
++    printf("x1: %d, x2: %d, y1: %d, y2: %d, color: %ld\n",ll->ln.x1, ll->ln.x2, ll->ln.y1, ll->ln.y2, ll->ln.color);
++  }
++}
++
++/*
++ * An admin client wants to transfer a board from this server to another server.
++ */
++int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq) 
++{
++  //* return variable. 
++  static int result;
++  
++  //* debugging.
++  printf("in transferwhiteboard_1_svc in server: xa.boardname: %s, xa.machinemane: %s, xa.nprogram: %d, xa.nversion: %d\n", xa->boardnm, xa->machinenm, xa->nprogram, xa->nversion );
++  
++  //* making copy of xa into xa_copy.
++  struct XferWBArg * xa_copy = (struct XferWBArg *) malloc(sizeof(struct XferWBArg));
++  strcpy(xa_copy->boardnm , xa->boardnm);
++  strcpy(xa_copy->machinenm, xa->machinenm);
++  xa_copy->nprogram = xa->nprogram; // doubt.
++  xa_copy->nversion = xa->nversion; // doubt.
++  
++  //* extracting board to transfer.
++  ABoard *board_to_transfer =  find_wbp(xa->boardnm);
++  if (!board_to_transfer)
++  {
++    result = -1;
++    return result;
++  }
++  printf("board in original server:\n");
++  print_aboard(board_to_transfer);
++  
++
++  //* telling all the clients in this board to start new connection to new server and delete connection to this server.
++  if (board_to_transfer)
++  {
++    AClient * q = board_to_transfer->clients;
++    for (;q ; q=q->next)
++    {
++      printf("ravan : %d\n", q->clientdata.nprogram);
++      addnewserverconnection_1(xa_copy, q->callback);
++    }
++  }
++  //* debugging.
++  printf("requested the clients to register to the new server.\n");
++
++
++  //* copying Aboard board_to_transfer to Bboard actual_board_to_transfer.
++  //* initializing actual_board_to_transfer. 
++  BBoard *actual_board_to_transfer = (struct BBoard *)malloc(sizeof(struct BBoard));
++  actual_board_to_transfer->next = NULL;
++  actual_board_to_transfer->lines = NULL;
++  actual_board_to_transfer->clients = NULL;
++  
++  //* initializing client_head and client_tail.
++  BClient* client_head = (BClient*)malloc(sizeof(BClient));
++  client_head->next = NULL; client_head->clientdata = NULL; 
++  BClient* client_tail = client_head;
++  //* for loop to copy board_to_transfer->clients to actual_board_to_transfer->clients. 
++  AClient * cl;
++  for (cl = board_to_transfer->clients; cl; cl=cl->next)
++  {
++    BClient* client_current = (BClient*)malloc(sizeof(BClient));
++    client_current->next = NULL;// client_current->clientdata=NULL;
++    client_current->clientdata = (ClientData*)malloc(sizeof(ClientData));
++    strcpy(client_current->clientdata->boardnm, cl->clientdata.boardnm);
++    strcpy(client_current->clientdata->machinenm, cl->clientdata.machinenm);
++    strcpy(client_current->clientdata->xdisplaynm, cl->clientdata.xdisplaynm);
++    client_current->clientdata->color = cl->clientdata.color;
++    client_current->clientdata->nprogram = cl->clientdata.nprogram;
++    client_current->clientdata->nversion = cl->clientdata.nversion;
++
++    //* closing rpc handle of this server to the clients.
++    printf("cnlt_destry in original server: %s %s %d %d %ld %p\n", cl->clientdata.boardnm, cl->clientdata.machinenm, cl->clientdata.nprogram, cl->clientdata.nversion, cl->clientdata.color, cl->callback);
++    clnt_destroy(cl->callback);
++
++    client_tail->next = client_current;
++    client_tail = client_current;
++  }
++  actual_board_to_transfer->clients = client_head->next;
++
++  //* initializing line_head and line_tail.
++  ALine* line_head = (ALine*)malloc(sizeof(ALine));
++  line_head->next = NULL;
++  line_head->ln.x1 = 0;
++  line_head->ln.x2 = 0;
++  line_head->ln.y1 = 0;
++  line_head->ln.y2 = 0;
++  line_head->ln.color = 0;
++  ALine* line_tail = line_head;
++  //* for loop to copy board_to_transfer->lines to actual_board_to_transfer->lines. 
++  ALine* ll;
++  for(ll=board_to_transfer->lines; ll ; ll=ll->next)
++  {
++    ALine* line_current = (ALine*)malloc(sizeof(ALine));
++    line_current->next = NULL;
++    line_current->ln.x1 = ll->ln.x1;
++    line_current->ln.x2 = ll->ln.x2;
++    line_current->ln.y1 = ll->ln.y1;
++    line_current->ln.y2 = ll->ln.y2;
++    line_current->ln.color = ll->ln.color;
++
++    line_tail->next = line_current;
++    line_tail = line_current;
++  }
++  actual_board_to_transfer->lines = line_head->next; 
++
++  //* debugging.
++  printf("actual_board_to_transfer in original server:\n");
++  print_bboard(actual_board_to_transfer);
++   
++  //* opening a new rpc connection to new_server and transferring the bboard actual_board_to_transfer.
++  CLIENT * clp_new_server = clnt_create(xa->machinenm, xa->nprogram, xa->nversion, "tcp");  
++  result = receivenewwhiteboard_1(actual_board_to_transfer, clp_new_server);
++  clnt_destroy(clp_new_server);
++
++  //* debugging.
++  printf("sent the board to new server.\n");
++
++  //* deleting board from this server.
++  delboard(board_to_transfer);
++  printf("board deleted from original server\n");
++
++  //* returing correct error code.
++  result = 0;
++  return &result;
++}
++
++/*
++ * A server wants to send one board to this server.
++ * This server should establish connection to all clients in that board 
++ * and also add the board in its boards list.
++ */
++int* receivenewwhiteboard_1_svc(struct BBoard * wb, struct svc_req * srq) 
++{
++  //* return variable. 
++  static int result;
++  result = - 1;
++  
++  //* debussing.
++  printf("board received in new server\n");
++  print_bboard(wb);
++  
++
++  //* copying Bboard wb to Aboard board_to_insert.
++  //* initializing board_to_insert. 
++  ABoard *board_to_insert = (struct ABoard *)malloc(sizeof(struct ABoard));
++  board_to_insert->next = NULL;
++  board_to_insert->lines = NULL;
++  board_to_insert->clients = NULL;
++  
++  //* initializing client_head and client_tail.
++  AClient* client_head = (AClient*)malloc(sizeof(AClient));
++  client_head->next = NULL; client_head->callback = NULL; //client_head->clientdata = NULL; // doubt.
++  client_head->clientdata.color = 0;
++  client_head->clientdata.nprogram = 0;
++  client_head->clientdata.nversion = 0;
++  strcpy(client_head->clientdata.machinenm,"\0");
++  strcpy(client_head->clientdata.boardnm,"\0");
++  strcpy(client_head->clientdata.xdisplaynm,"\0");
++  BClient* client_tail = client_head;
++  //* for loop to copy board_to_transfer->clients to actual_board_to_transfer->clients. 
++  BClient * cl;
++  for (cl = wb->clients; cl; cl=cl->next)
++  {
++    AClient* client_current = (AClient*)malloc(sizeof(AClient));
++    client_current->next = NULL; client_current->callback=NULL; // client_current->clientdata=NULL;
++    // client_current->clientdata = (ClientData*)malloc(sizeof(ClientData));
++    strcpy(client_current->clientdata.boardnm, cl->clientdata->boardnm);
++    strcpy(client_current->clientdata.machinenm, cl->clientdata->machinenm);
++    strcpy(client_current->clientdata.xdisplaynm, cl->clientdata->xdisplaynm);
++    client_current->clientdata.color = cl->clientdata->color;
++    client_current->clientdata.nprogram = cl->clientdata->nprogram;
++    client_current->clientdata.nversion = cl->clientdata->nversion;
++    
++    //* making a new rpc handle to client.
++    printf("hi1\n");
++    printf("clnt_create in new server: %s %s %d %d %ld %p\n", client_current->clientdata.boardnm ,client_current->clientdata.machinenm, client_current->clientdata.nprogram, client_current->clientdata.nversion, client_current->clientdata.color, client_current->callback);
++    client_current->callback =  clnt_create(client_current->clientdata.machinenm, client_current->clientdata.nprogram, client_current->clientdata.nversion, "tcp");
++    printf("new callbak: %p\n", client_current->callback);
++    printf("bye1\n");
++
++    client_tail->next = client_current;
++    client_tail = client_current;
++  }
++  board_to_insert->clients = client_head->next;
++
++  //* initializing line_head and line_tail.
++  ALine* line_head = (ALine*)malloc(sizeof(ALine));
++  line_head->next = NULL;
++  line_head->ln.x1 = 0;
++  line_head->ln.x2 = 0;
++  line_head->ln.y1 = 0;
++  line_head->ln.y2 = 0;
++  line_head->ln.color = 0;
++  ALine* line_tail = line_head;
++  //* for loop to copy board_to_transfer->lines to actual_board_to_transfer->lines. 
++  ALine* ll;
++  for(ll=wb->lines; ll ; ll=ll->next)
++  {
++    ALine* line_current = (ALine*)malloc(sizeof(ALine));
++    line_current->next = NULL;
++    line_current->ln.x1 = ll->ln.x1;
++    line_current->ln.x2 = ll->ln.x2;
++    line_current->ln.y1 = ll->ln.y1;
++    line_current->ln.y2 = ll->ln.y2;
++    line_current->ln.color = ll->ln.color;
++
++    line_tail->next = line_current;
++    line_tail = line_current;
++  }
++  board_to_insert->lines = line_head->next; 
++
++  //* debugging.
++  printf("aboard_to_insert in new server:\n");
++  print_aboard(board_to_insert);
++
++
++  //* inserting the board received into boards.
++  insert((ListNode **) & boards, (ListNode *) board_to_insert);
++
++  //* debugging.
++  printf("received board inserted into boards list.\n");
++
++  //* returing correct error code.
++  result = 0;
++  return &result;
++}
++
+ /* -eof- */
+diff --git a/p1/build/server.x b/p1/build/server.x
+index 6dab792..50e92b9 100644
+--- a/p1/build/server.x
++++ b/p1/build/server.x
+@@ -5,7 +5,7 @@
+ 
+ #include "oneln.h"
+ 
+-typedef struct ALine *Linep;
++typedef struct ALine *Linep; /* Linep is of type struct Aline */ 
+ 
+ struct ALine {
+   struct ALine *next;		/* generic singly-linked list */
+@@ -26,6 +26,30 @@ struct AddLineArg {
+   ClientData clientdata;
+ };
+ 
++struct NewServerMcNm{
++  char newServerMachineName[NMSZ];
++};
++
++struct BClient {		/* cf with AClient */
++  struct BClient *next;
++  ClientData * clientdata;
++				/* CLIENT *callback; removed */
++};
++
++struct BBoard {			/* cf with ABoard */
++  struct BBoard *next;
++  struct BClient *clients;
++  ALine *lines;
++};
++
++struct XferWBArg {
++  char boardnm[NMSZ];		/* board name to be transferred */
++  char machinenm[NMSZ];		/* name of the receiving machine */
++  int nprogram;			/* rpc prog num of the server above (receiving server program number) */
++  int nversion;			/* registered version number */
++};
++
++
+ /* doubt: did not understand the syntax of the below struct. Use of this struct/program? */  
+ program WhiteBoardServer {
+   version WhiteBoardServerVersion {
+@@ -33,7 +57,13 @@ program WhiteBoardServer {
+     int delclient(ClientData) = 2;
+     int addline(AddLineArg) = 3;
+     Linep sendallmylines(ClientData) = 4;
++    struct BBoard query(int) = 5;
++    int newserver(NewServerMcNm) = 6; 
++    int transferwhiteboard(XferWBArg) = 7;
++    int receivenewwhiteboard(BBoard) = 8;
+   } = 1;
+ } = 0x20000099;			/* change to your own last 4 digits */ /* doubt? */ 
+ 
+ /* -eof- */
++
++
+diff --git a/p1/build/tags b/p1/build/tags
+new file mode 100644
+index 0000000..33ed9e8
+--- /dev/null
++++ b/p1/build/tags
+@@ -0,0 +1,6 @@
++!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
++!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
++!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
++!_TAG_PROGRAM_NAME	Exuberant Ctags	//
++!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
++!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+diff --git a/p1/build/transient.c b/p1/build/transient.c
+index 88c99c7..e8a5634 100644
+--- a/p1/build/transient.c
++++ b/p1/build/transient.c
+@@ -45,6 +45,7 @@ int getTransientProgNumber(int version)
+   unsigned long prognum, i;
+   for (i = 0; i < NATTEMPTS;) {
+     prognum = findTransient(version);
++    printf("in transient.c: prognum: %lu\n",prognum);
+     if (prognum > 0)
+       return prognum;
+ 
+diff --git a/p1/build/wb.h b/p1/build/wb.h
+index 2cb8a10..c397e54 100644
+--- a/p1/build/wb.h
++++ b/p1/build/wb.h
+@@ -9,9 +9,10 @@
+ #include <errno.h>
+ #include <assert.h>
+ 
++
+ #include "server.h"		/* generated by rpcgen */
+ 
+-void *callbackfromwbs_1 (OneLn * argp, CLIENT * clnt); // doubt
++void *callbackfromwbs_1 (OneLn * argp, CLIENT * clnt); // doubt , CLIENT is in rpc/rpc.h
+ 
+ /* in xwindow.c */
+ long atoir (char *p, int r);
+diff --git a/p1/build/wbadmin.c b/p1/build/wbadmin.c
+index cd4eb00..d892297 100644
+--- a/p1/build/wbadmin.c
++++ b/p1/build/wbadmin.c
+@@ -1,3 +1,5 @@
++// gcc -o wbadmin  server_clnt.o client_s.o server_xdr.o -lX11
++
+ /*
+  * An example 730-C-RPC White Board Administration program
+  *
+@@ -9,31 +11,32 @@
+ /* The declarations for BClient, BBoard, XferWBArg, query, newserver,
+  * and transferwhiteboard should go into the new server.x */
+ 
+-struct BClient {		/* cf with AClient */
+-  struct BClient *next;
+-  ClientData * clientdata;
+-				/* CLIENT *callback; removed */
+-};
++// struct BClient {		/* cf with AClient */
++//   struct BClient *next;
++//   ClientData * clientdata;
++// 				/* CLIENT *callback; removed */
++// };
+ 
+-struct BBoard {			/* cf with ABoard */
+-  struct BBoard *next;
+-  struct BClient *clients;
+-  ALine *lines;
+-};
++// struct BBoard {			/* cf with ABoard */
++//   struct BBoard *next;
++//   struct BClient *clients;
++//   ALine *lines;
++// };
+ 
+-#define NMSZ 50
++// #define NMSZ 50
+ 
+-struct XferWBArg {
+-  char boardnm[NMSZ];		/* board name to be transferred */
+-  char machinenm[NMSZ];		/* name of the receiving machine */
+-  int nprogram;			/* rpc prog num of the server above */
+-  int nversion;			/* registered version number */
+-};
++// struct XferWBArg {
++//   char boardnm[NMSZ];		/* board name to be transferred */
++//   char machinenm[NMSZ];		/* name of the receiving machine */
++//   int nprogram;			/* rpc prog num of the server above */
++//   int nversion;			/* registered version number */
++// };
+ 
+-struct BBoard * query_1(int * unused, CLIENT * clp) {  return 0;}
+-int newserver_1(char * machineName, CLIENT * clp) { return 0; }
+-int transferwhiteboard_1(struct XferWBArg a, CLIENT * clp) { return 0; }
++// struct BBoard * query_1(int * unused, CLIENT * clp); //{  return 0;}
++// int newserver_1(char * machineName, CLIENT * clp) { return 0; }
++// int transferwhiteboard_1(struct XferWBArg a, CLIENT * clp) { return 0; }
+ 
++//* usage of wbadmin.
+ void usage()
+ {
+   fprintf
+@@ -45,28 +48,88 @@ void usage()
+      "wbadmin -t <from-server-machine-nm> <prognum-in-hex> <wb-nm> <to-server-machine-nm> <prognum>\n");
+ }
+ 
++//* function to query a server with name snm and rpc program number prgn.
+ int queryServer(char * snm, int prgn, CLIENT * clp)
+ {
++  //* rpc call to server to get its board as BBoard b.
+   int dummy = 0;
+   struct BBoard * b = query_1(&dummy, clp);
++  
++
+   if (b == 0)
+-    printf("Server has no boards.\n");
++  {
++    printf("ERROR: Server has no boards.\n");
++    return -1;
++  }
+   else
+-    for (; b; b = b->next) {
+-      printf("Board %s on server %s prognum %x has\n",
+-	     b->clients->clientdata->boardnm, snm, prgn);
+-      if (b->clients == 0) 	/* for robustness and better functionality ... */
+-	printf("\tno clients\n");
+-      else
+-	for (struct BClient * c = b->clients; c; c = c->next)
+-	  printf("\tclient on server %s displayed at %s with prognum %x\n",
+-		 c->clientdata->machinenm,
+-		 c->clientdata->xdisplaynm,
+-		 c->clientdata->nprogram);
+-    }
++  {
++    for (; b; b = b->next) 
++    {
++      printf("Board %s on server %s prognum %x has:\n", b->clients->clientdata->boardnm, snm, prgn);
++      if (b->clients == 0)
++      {
++        printf("\tno clients\n"); /* for robustness and better functionality ... */
++      } 	
++      else 
++      {
++        for (struct BClient * c = b->clients; c; c = c->next)
++        {
++          printf("\tclient on server %s displayed at %s with prognum %x\n",
++          c->clientdata->machinenm,
++          c->clientdata->xdisplaynm,
++          c->clientdata->nprogram);
++        }        
++          ALine *l;
++          printf("\n\tthese are the lines on the board:\n");
++          for (l = b->lines; l ; l=l->next)
++          {
++            printf("\t\t%ld, %d, %d, %d, %d\n", l->ln.color, l->ln.x1, l->ln.x2, l->ln.y1, l->ln.y2);    
++          }
++      } 
++      }
++  }
++
+   return 0;
+ }
+ 
++
++int transferBoard(struct XferWBArg a, CLIENT * clp)
++{  
++  struct XferWBArg * xa = (struct XferWBArg *)malloc(sizeof(struct XferWBArg));
++  xa->nprogram = a.nprogram;
++  xa->nversion = a.nversion;
++  strcpy(xa->boardnm, a.boardnm);
++  strcpy(xa->machinenm, a.machinenm);
++  printf("transferboard in wbadmin: %d %d %d %d\n", xa->nprogram, xa->nversion, xa->nversion, xa->nprogram);
++  int ret = *transferwhiteboard_1(xa, clp); // doubt.
++  if (ret==-1)
++  {
++    printf("ERROR: unable to transfer board!\n");
++  }
++  return ret;
++}
++
++int startNewServer(char* nsnm1, CLIENT * clp)
++{
++  struct NewServerMcNm nsnm;
++  strcpy(nsnm.newServerMachineName, nsnm1);
++  struct NewServerMcNm* newServerMcNm = &nsnm;
++  int return_program_num = *newserver_1(newServerMcNm, clp); // doubt: can we directly pass nsnm?
++  
++  //* debugging.
++  // printf("nsnm1: %s\n", nsnm1);
++  // printf("newServerMcNm: %s\n", newServerMcNm->newServerMachineName);
++  // printf("return_program_num: %d\n", return_program_num);
++  
++  if (return_program_num == -1)
++  {
++    printf("ERROR: <existing-server-machine-nm> != <new-server-machine-nm>\n");
++  }
++  return return_program_num;
++}
++
++
++
+ int main(int argc, char * argv[])
+ {
+   CLIENT * clp = 0; // doubt
+@@ -83,7 +146,10 @@ int main(int argc, char * argv[])
+   printf("prgn %x\n", prognum);
+   clp = clnt_create(host, prognum, WhiteBoardServerVersion, "tcp"); // doubt
+   if (clp == 0)
++  {
++    printf("yo");
+     goto error;
++  }
+ 
+   switch (cmd[1]) {
+   case 'q':
+@@ -92,7 +158,8 @@ int main(int argc, char * argv[])
+   case 'n':
+     if (argc < 5)
+       goto error;
+-    result = newserver_1(argv[4], clp); /* result == prog num of new server */
++    // result = newserver_1(argv[4], clp); /* result == prog num of new server */
++    result = startNewServer(argv[4], clp);
+     break;
+   case 't':
+     if (argc < 6)
+@@ -102,7 +169,8 @@ int main(int argc, char * argv[])
+     strcpy(xa.machinenm, argv[5]);
+     xa.nprogram = strtol(argv[6], 0, 16);
+     xa.nversion = WhiteBoardServerVersion;
+-    result = transferwhiteboard_1(xa, clp);
++    // result = transferwhiteboard_1(xa, clp);
++    result = transferBoard(xa, clp);
+     break;
+   default:
+     goto error;
+diff --git a/po/codes/server.c b/po/codes/server.c
+index 0196ead..f4a081a 100644
+--- a/po/codes/server.c
++++ b/po/codes/server.c
+@@ -36,7 +36,7 @@ static void delete(ListNode ** hdr, ListNode * d)
+ typedef struct AClient {
+   struct AClient *next;
+   ClientData clientdata;
+-  CLIENT *callback;		/* rpc.h */
++  CLIENT *callback;		/* rpc.h */ // doubt ?
+ } AClient;
+ 
+ typedef struct ABoard {
+@@ -100,12 +100,12 @@ error:
+ }
+ 
+ /*
+- * Commit suicide!  Unregister yourself. Invoked as SIGALRM handler.
++ * Commit suicide!  Unregister yourself. Invoked as SIGALRM handler. // doubt: when is this handler registered?
+  */
+ static void die(int dummy)
+ {
+-  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion);
+-  exit(x != 1);
++  int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion); // doubt?
++  exit(x != 1); // doubt
+ }
+ 
+ static void delboard(ABoard * ab)
