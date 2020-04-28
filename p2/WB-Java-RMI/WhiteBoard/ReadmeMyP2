@@ -1,3 +1,8 @@
+To understand the code changes please look at changes_diff.txt (git diff from p0). 
+
+Files added:
+    changes_diff.txt
+
 Files modified:
     Invoke.java
     WbAdmin.java
