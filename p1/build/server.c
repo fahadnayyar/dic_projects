@@ -13,34 +13,6 @@ typedef struct ListNode {
   struct ListNode *next;
 } ListNode;
 
-//* for assertions.
-static int is_same_list(ListNode* hdr1, ListNode* hdr2)
-{
-  while (!(hdr1==NULL || hdr2==NULL))
-  {
-    if (hdr1!=hdr2)
-      return 0;
-    hdr1 = hdr1->next;
-    hdr2 = hdr2->next;
-  }
-  if (hdr1==hdr2)
-    return 1;
-  else
-    return 0;
-}
-
-//* for assertions.
-static int isSameExceptHead(ListNode* hdr, ListNode* hdr_old)
-{
-  ListNode* hdr_second;
-  if(hdr->next == NULL)
-  {
-    hdr_second = NULL;    
-  }
-  else
-    hdr_second = hdr->next->next;
-  return is_same_list(hdr_second, hdr_old);
-}
 
 //* for assertions.
 static int is_not_circular(ListNode* hdr)
@@ -64,11 +36,11 @@ static int is_not_circular(ListNode* hdr)
 
 static void insert(ListNode ** hdr, ListNode * p)
 {
-  // assert(is_not_circular((ListNode*)hdr) && p); //*
+  assert(is_not_circular((ListNode*)hdr) && p); //*
   ListNode** hdr_old = hdr;  //* for assertions.
   if (hdr == NULL)
   {
-    // assert(1); //*
+    assert(1); //*
     return;
   }
   ListNode * first_element;
@@ -80,7 +52,7 @@ static void insert(ListNode ** hdr, ListNode * p)
     first_element = ((ListNode *)hdr)->next->next;  //* for assertions.
   p->next = *hdr;
   *hdr = p;
-  // assert(is_not_circular((ListNode*)hdr) && hdr==hdr_old && isSameExceptHead(*hdr,first_element)); //*
+  assert(is_not_circular((ListNode*)hdr) && hdr==hdr_old); //*
 }
 
 //* for assertion
@@ -95,9 +67,10 @@ static int is_not_present(ListNode* hdr, ListNode* d)
   return 1;
 }
 
+
 static void delete(ListNode ** hdr, ListNode * d)
 { 
-  // assert(is_not_circular((ListNode*)hdr) && d); //* doubt
+  assert(is_not_circular((ListNode*)hdr) && d); //* doubt
   ListNode *p, *q;
 
   if (hdr == NULL || *hdr == NULL)
@@ -106,11 +79,11 @@ static void delete(ListNode ** hdr, ListNode * d)
     if (q == d) {
       p->next = q->next;
       free(q);
-      // assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
+      assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
       return;
     }
   }
-  // assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
+  assert(is_not_circular((ListNode*)hdr) && is_not_present((ListNode*)hdr,d)); //*
 }
 
 typedef struct AClient {
@@ -128,11 +101,64 @@ typedef struct ABoard {
 
 static ABoard *boards = NULL;	/* list of boards that server has */
 
-/* Find the white board with name nm[].  */
+//* for assertions.
+static int is_same_board(ABoard* b1, BBoard* b2)
+{
+  AClient *c1;
+  for (c1=b1->clients ; c1 ; c1=c1->next)
+  {
+    int flag = 0;
+    BClient *c2;
+    for (c2=b2->clients; c2; c2=c2->next)
+    {
+      // printf("%s %s %d %d %s %s\n", c1->clientdata.machinenm, c2->clientdata->boardnm,
+      // c1->clientdata.nprogram, c2->clientdata->nprogram, c1->clientdata.boardnm, c2->clientdata->boardnm);
+      if (strcmp(c1->clientdata.machinenm, c2->clientdata->machinenm)==0 
+      && (c1->clientdata.nprogram == c2->clientdata->nprogram)
+      && strcmp(c1->clientdata.boardnm, c2->clientdata->boardnm)==0)
+      {
+        flag=1;
+        break;
+      }
+    }
+    if (flag==0)
+    {
+      printf("fail1\n");
+      return 0;
+    }
+  }
 
+  ALine *l1;
+  for (l1=b1->lines; l1; l1=l1->next)
+  {
+    int flag=0;
+    ALine *l2;
+    for (l2=b2->lines; l2; l2=l2->next)
+    {
+      if (l1->ln.x1==l2->ln.x1
+      &&  l1->ln.x2==l2->ln.x2
+      && l1->ln.y1==l2->ln.y1
+      && l1->ln.y2==l2->ln.y2
+      && l1->ln.color==l2->ln.color)
+      {
+        flag = 1;
+        break;
+      }
+    }
+    if (flag==0)
+    {
+      printf("fail2");
+      return 0;
+    }
+  }
+  return 1;
+}
+
+
+/* Find the white board with name nm[].  */
 static ABoard *find_wbp(char *nm)
 {
-  // assert(nm); //*
+  assert(nm); //*
   ABoard *p;
 
   for (p = boards; p; p = p->next) {
@@ -141,7 +167,7 @@ static ABoard *find_wbp(char *nm)
       break;
     }
   }
-  // assert(!p || strcmp(nm, p->clients->clientdata.boardnm) == 0); //*
+  assert(!p || strcmp(nm, p->clients->clientdata.boardnm) == 0); //*
   return p;
 }
 
@@ -151,7 +177,7 @@ static ABoard *find_wbp(char *nm)
  */
 int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
 {
-  // assert(cd); //* doubt
+  assert(cd); //* doubt
   static int result;		/* note: static */
   ABoard *ab = find_wbp(cd->boardnm);
   AClient *q = (AClient *) malloc(sizeof(AClient));
@@ -179,11 +205,11 @@ int *addclient_1_svc(ClientData * cd, struct svc_req *srq)
   }
   insert((ListNode **) & ab->clients, (ListNode *) q);
   result = 0;
-  // assert(!is_not_present((ListNode*)boards, (ListNode*)ab) && !is_not_present((ListNode*)(ab->clients),(ListNode*)q) && !result); //* doubt
+  assert(!is_not_present((ListNode*)boards, (ListNode*)ab) && !is_not_present((ListNode*)(ab->clients),(ListNode*)q)); //* doubt
   return &result;
 error:
   result = -1;
-  // assert(result==-1); //* doubt
+  assert(1); //* doubt
   return &result;
 }
 
@@ -192,15 +218,15 @@ error:
  */
 static void die(int dummy)
 {
-  // assert(1); //*
+  assert(1);
   int x = pmap_unset(WhiteBoardServer, WhiteBoardServerVersion); // doubt
   exit(x != 1);
-  // assert(1); //*
+  assert(1);
 }
 
 static void delboard(ABoard * ab)
 {
-  // assert(ab);
+  assert(ab);
   ALine *lp, *lq;
 
   for (lp = ab->lines; lp; lp = lq) {
@@ -208,7 +234,7 @@ static void delboard(ABoard * ab)
     free(lp);
   }
   delete((ListNode **) & boards, (ListNode *) ab);
-  // assert(is_not_present((ListNode*)boards, (ListNode*)ab) && !ab->lines);
+  assert(is_not_present((ListNode*)boards, (ListNode*)ab));
 }
 
 /*
@@ -217,7 +243,7 @@ static void delboard(ABoard * ab)
  */
 int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
 {
-  // assert(cd); //* doubt
+  assert(cd); //* doubt
   static int result;		/* note: static */
   AClient *p;
   ABoard *ab = find_wbp(cd->boardnm);
@@ -246,12 +272,12 @@ int *delclient_1_svc(ClientData * cd, struct svc_req *srq)
     alarm(1);			/* invoke die() after 1 second */
   }
   result = 0;
-  assert(is_not_present((ListNode*)ab->clients,(ListNode*)p) && (ab->clients || is_not_present((ListNode*)boards,(ListNode*)ab))); //* doubt
+  // assert(is_not_present((ListNode*)ab->clients,(ListNode*)p) && (ab->clients || is_not_present((ListNode*)boards,(ListNode*)ab))); //* doubt
   // assert(is_not_present((ListNode*),(ListNode*)) , is_not_present((ListNode*),(ListNode*))); //* doubt
   return &result;
 error:
   result = -1;
-  // assert(1); //* doubt
+  assert(1); //* doubt
   return &result;
 }
 
@@ -261,7 +287,7 @@ error:
  */
 int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
 {
-  // assert(ap); //*
+  assert(ap); //*
   static int result;		/* note: static */
   AClient *p;
   ALine *lp = (ALine *) malloc(sizeof(ALine));
@@ -279,11 +305,11 @@ int *addline_1_svc(AddLineArg * ap, struct svc_req *srq)
     callbackfromwbs_1(&ap->ln, p->callback); // doubt
   }
   result = 0;
-  // assert(!is_not_present((ListNode* )ab->lines,lp)); //*
+  assert(!is_not_present((ListNode* )ab->lines,(ListNode *)lp)); //*
   return &result;
 error:
   result = -1;
-  // assert(is_not_present((ListNode*)boards,(ListNode*)ab)); //* 
+  assert(is_not_present((ListNode*)boards,(ListNode*)ab)); //* 
   return &result;
 }
 
@@ -292,10 +318,10 @@ error:
  */
 Linep *sendallmylines_1_svc(ClientData * cd, struct svc_req * srq)
 {
-  // assert(cd); //*
+  assert(cd); //*
   static ALine *lp = NULL;	/* note: static */
   ABoard *ab = find_wbp(cd->boardnm);
-  // assesrt(!ab || !is_not_present((ListNode*)boards,(ListNode*)ab)); //*
+  assert(1); //*
   return (ab ? &ab->lines : &lp);
 }
 
@@ -306,6 +332,7 @@ Linep *sendallmylines_1_svc(ClientData * cd, struct svc_req * srq)
  */
 struct BBoard * query_1_svc(int * unused, struct svc_req * srq) 
 {  
+  assert(1);
   //* debugging.
   printf("in server: query_1_svc\n");
   
@@ -409,6 +436,8 @@ struct BBoard * query_1_svc(int * unused, struct svc_req * srq)
     //* putting current_board in the end of current_board linked list.  
     current_board_tail->next = current_board;
     current_board_tail = current_board;
+
+    assert(is_same_board(p, current_board_tail));
   }
   
 
@@ -428,6 +457,7 @@ int getTransientProgNumber(int version);
  */
 int* newserver_1_svc(struct NewServerMcNm * nsmn, struct svc_req * srq) 
 {
+  assert(nsmn);
     static int result;
     char newServerMachineName[50]; 
     strcpy(newServerMachineName, nsmn->newServerMachineName);
@@ -479,7 +509,7 @@ int* newserver_1_svc(struct NewServerMcNm * nsmn, struct svc_req * srq)
   }
   
   // printf("ERROR: cannot start new server on a different machine!\n");
-  
+  assert(1);
   result = -1;
   return &result;
   
@@ -488,6 +518,7 @@ int* newserver_1_svc(struct NewServerMcNm * nsmn, struct svc_req * srq)
 //* for debugging.
 void print_bboard(BBoard* board)
 {
+  assert(board);
   printf("clinets:\n");
   BClient * cl;
   for (cl=board->clients; cl; cl=cl->next)
@@ -500,11 +531,13 @@ void print_bboard(BBoard* board)
   {
     printf("x1: %d, x2: %d, y1: %d, y2: %d, color: %ld\n",ll->ln.x1, ll->ln.x2, ll->ln.y1, ll->ln.y2, ll->ln.color);
   }
+  assert(1);
 }
 
 //* for debugging.
 void print_aboard(ABoard* board)
 {
+  assert(board);
   printf("clinets:\n");
   AClient * cl;
   for (cl=board->clients; cl; cl=cl->next)
@@ -517,6 +550,7 @@ void print_aboard(ABoard* board)
   {
     printf("x1: %d, x2: %d, y1: %d, y2: %d, color: %ld\n",ll->ln.x1, ll->ln.x2, ll->ln.y1, ll->ln.y2, ll->ln.color);
   }
+  assert(1);
 }
 
 /*
@@ -524,6 +558,7 @@ void print_aboard(ABoard* board)
  */
 int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq) 
 {
+  assert(xa);
   //* return variable. 
   static int result;
   
@@ -542,7 +577,7 @@ int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq)
   if (!board_to_transfer)
   {
     result = -1;
-    return result;
+    return &result;
   }
   printf("board in original server:\n");
   print_aboard(board_to_transfer);
@@ -626,6 +661,8 @@ int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq)
   printf("actual_board_to_transfer in original server:\n");
   print_bboard(actual_board_to_transfer);
    
+  assert(is_same_board(board_to_transfer, actual_board_to_transfer ));
+
   //* opening a new rpc connection to new_server and transferring the bboard actual_board_to_transfer.
   CLIENT * clp_new_server = clnt_create(xa->machinenm, xa->nprogram, xa->nversion, "tcp");  
   result = receivenewwhiteboard_1(actual_board_to_transfer, clp_new_server);
@@ -637,6 +674,8 @@ int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq)
   //* deleting board from this server.
   delboard(board_to_transfer);
   printf("board deleted from original server\n");
+
+  assert(is_not_present((ListNode*)boards, (ListNode*)board_to_transfer));
 
   //* returing correct error code.
   result = 0;
@@ -650,6 +689,7 @@ int* transferwhiteboard_1_svc(struct XferWBArg * xa, struct svc_req * srq)
  */
 int* receivenewwhiteboard_1_svc(struct BBoard * wb, struct svc_req * srq) 
 {
+  assert(wb); // cannot send null whiteboards.
   //* return variable. 
   static int result;
   result = - 1;
@@ -738,6 +778,8 @@ int* receivenewwhiteboard_1_svc(struct BBoard * wb, struct svc_req * srq)
 
   //* debugging.
   printf("received board inserted into boards list.\n");
+
+  assert(!is_not_present((ListNode*)(boards),(ListNode*)board_to_insert)   && is_same_board(board_to_insert, wb));
 
   //* returing correct error code.
   result = 0;

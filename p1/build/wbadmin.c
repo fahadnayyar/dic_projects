@@ -51,6 +51,7 @@ void usage()
 //* function to query a server with name snm and rpc program number prgn.
 int queryServer(char * snm, int prgn, CLIENT * clp)
 {
+  assert(snm && clp);
   //* rpc call to server to get its board as BBoard b.
   int dummy = 0;
   struct BBoard * b = query_1(&dummy, clp);
@@ -88,13 +89,14 @@ int queryServer(char * snm, int prgn, CLIENT * clp)
       } 
       }
   }
-
+  assert(1);
   return 0;
 }
 
 
 int transferBoard(struct XferWBArg a, CLIENT * clp)
 {  
+  assert(clp);
   struct XferWBArg * xa = (struct XferWBArg *)malloc(sizeof(struct XferWBArg));
   xa->nprogram = a.nprogram;
   xa->nversion = a.nversion;
@@ -106,11 +108,13 @@ int transferBoard(struct XferWBArg a, CLIENT * clp)
   {
     printf("ERROR: unable to transfer board!\n");
   }
+  assert(1);
   return ret;
 }
 
 int startNewServer(char* nsnm1, CLIENT * clp)
 {
+  assert(nsnm1 && clp);
   struct NewServerMcNm nsnm;
   strcpy(nsnm.newServerMachineName, nsnm1);
   struct NewServerMcNm* newServerMcNm = &nsnm;
@@ -125,6 +129,7 @@ int startNewServer(char* nsnm1, CLIENT * clp)
   {
     printf("ERROR: <existing-server-machine-nm> != <new-server-machine-nm>\n");
   }
+  assert(1);
   return return_program_num;
 }
 

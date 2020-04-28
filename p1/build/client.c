@@ -21,16 +21,16 @@ static CLIENT *clp;		/* librpc clnt_create()-ed */ // doubt
 // parent function.
 static void endtheclient(int unused)
 {
-  // assert(1); //* doubt
+  assert(1);
   delclient_1(&me.clientdata, clp); /* ask server to delete me */ // doubt
   // parent.
   clnt_destroy(clp);		/* CLIENT structure */ // doubt
   pmap_unset(me.clientdata.nprogram, me.clientdata.nversion); // doubt
   closexwindow();
   kill(childid, SIGTERM);
-  // assert(1); //* doubt
+  assert(1);
   exit(0);
-  // assert(0); //* this should be unreachable. 
+  assert(0); //* this should be unreachable. 
 }
 
 
@@ -42,12 +42,12 @@ static void endtheclient(int unused)
 // child
 void *callbackfromwbs_1_svc(OneLn * p)
 {
-  // assert(p); //* doubt
+  assert(p);
   static int i = 0;		/* note: static */
 
   write(xwinio[1], p, sizeof(OneLn));
   kill(parentid, SIGUSR1);	/* kill == "raise" */
-  // assert(1); //* doubt
+  assert(1);
   return (void *) &i;
 }
 
@@ -59,10 +59,12 @@ void *callbackfromwbs_1_svc(OneLn * p)
 // child
 void *addnewserverconnection_1_svc(struct XferWBArg * xa, struct svc_req * srq)
 {
+  assert(xa);
   static int i = 0;		/* note: static */
   printf("In client child process: xa.boardname: %s, xa.machinemane: %s, xa.nprogram: %d, xa.nversion: %d\n", xa->boardnm, xa->machinenm, xa->nprogram, xa->nversion );
   write(xwinio[1], xa, sizeof(struct XferWBArg));
   kill(parentid, SIGUSR2);	/* kill == "raise" */
+  assert(1);
   return (void *) &i;
 }
 
@@ -78,6 +80,7 @@ static void readndchangeserver(int unused)
   printf("In client parent process: xa.boardname: %s, xa.machinemane: %s, xa.nprogram: %d, xa.nversion: %d\n", xa.boardnm, xa.machinenm, xa.nprogram, xa.nversion );
   clnt_destroy(clp);		/* CLIENT structure */ // doubt
   clp = clnt_create(xa.machinenm, xa.nprogram, xa.nversion, "tcp");
+  assert(clp);
 }
 
 /*
@@ -87,12 +90,12 @@ static void readndchangeserver(int unused)
 // parent.
 static void readndraw(int unused)
 {
-  // assert(1); //*
+  assert(1);
   OneLn lc;
 
   (void) read(xwinio[0], &lc, sizeof(lc));
   drawline(&lc);
-  // assert(1); //*
+  assert(1);
 }
 
 /*
@@ -101,20 +104,21 @@ static void readndraw(int unused)
 // parent.
 static void exposedwindow()
 {
+  assert(1);
   // parent.
   Linep p, *q = sendallmylines_1(&me.clientdata, clp);
   int n = 0;
 
   if (q == NULL)
   {
-    // assert(1);
+    assert(1);
     return;
   }
   for (p = *q; p; p = p->next) {
     drawline(&p->ln);
     n++;
   }
-  // assert(1); //*_
+  assert(1);
 }
 
 /*
@@ -154,7 +158,7 @@ static void mousewatch()
 void startclient
     (int nprogram, int nversion,
      char *servermcnm, int serverprognum, char *boardnm, char *xdisplaynm, char *pmcolor) {
-  // assert(servermcnm && boardnm && xdisplaynm && pmcolor);
+  assert(servermcnm && boardnm && xdisplaynm && pmcolor);
   /* clients own details -- once set, these do not change */
   me.clientdata.color = atoir(pmcolor, 16);
   me.clientdata.nprogram = nprogram;
@@ -175,7 +179,7 @@ void startclient
 	    "1client730: clnt_create(%s,0x%x,0x%x,%s) failed.\n",
 	    servermcnm, serverprognum, WhiteBoardServerVersion, "tcp");
     exit(1);
-    // assert(0); //* unreachable
+    assert(0); //* unreachable
   }
 
 
@@ -183,14 +187,14 @@ void startclient
   if (pipe(xwinio) == -1) {
     fprintf(stderr, "client730: xindow io pipe failed.\n");
     exit(2);
-    // assert(0); //* unreachable
+    assert(0); //* unreachable
   }
 
   childid = fork();
   if (childid == -1) {
     fprintf(stderr, "client730: fork was unsuccessful.\n");
     exit(3);
-    // assert(0); //* unreachable
+    assert(0); //* unreachable
   }
   if (childid == 0) {
     /* the child process */
@@ -225,6 +229,7 @@ void startclient
     fprintf(stderr, "client730: openxwindow(%s, %s) == %d, failed\n",
 	    me.clientdata.xdisplaynm, xwintitle, x);
     exit(4);
+    assert(0); // unreachable.
   }
   addclient_1(&me.clientdata, clp); // doubt
   mousewatch();	    /* returns only when button3 is clicked */
