@@ -51,11 +51,11 @@ public class Invoke {
     /** Invoke java on the given class in a separate process.
 	Also, take care of any exceptions. */
 
-    public static void javaVM(char c, String args) {
+    public static String javaVM(char c, String args) {
 	pid ++;
 	String classNm = classNames[c == 'S'? 0 : c == 'C' ? 1 : 2];
 	String cmd = javaCmd + " " +  classNm + " " + pid + " " +  args;
-	
+	String url = makeURL('S', Integer.toString(pid));
 	try {
 	    Runtime r = Runtime.getRuntime();
 	    myPrint("Runtime "  + r, cmd);
@@ -68,7 +68,8 @@ public class Invoke {
 	} catch(Exception e) {
 	    System.out.println("Runtime Error executing [" + cmd + "]");
 	}
-    }
+	return url;	
+}
 
     public static String makeURL(char c, String id) {
 	return rmiRegistryPfx + c + id;

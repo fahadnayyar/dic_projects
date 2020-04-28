@@ -7,6 +7,11 @@ export PATH=/home/java/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/sb
 
 alias pj='ps aux | grep java'		# find java* processes
 
+
+wb7370clean() {
+  rm -f WhiteBoard/*.class
+}
+
 wb7370build() {
   # Current dir must be the parent of .java files
   rm -f WhiteBoard/*.class
@@ -24,6 +29,11 @@ wb7370rmi() {
     echo -n sleeping for 5 sec to let rmiregistry establish itself
     sleep 5
     echo
+}
+
+deregall7370() {
+  wb7370rmi
+  killall -q -v java
 }
 
 wb7370run() {
