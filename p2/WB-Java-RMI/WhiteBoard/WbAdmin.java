@@ -8,80 +8,25 @@ import java.util.*;
 import java.rmi.*;
 import java.awt.Color;
 
-//* making wbadmin exactly as wbclient [same packages included and same super types]
-
+//* made wbadmin exactly as wbclient [same packages included and same superclasses and or interfaces].
 public class WbAdmin extends java.rmi.server.UnicastRemoteObject implements WbClient {
 
-	// * dummy methods for interface wbclient:
+	// * dummy/useless methods for interface wbclient:
 
-	// * this method retrives all lines on myBoardNm from server.
-	public void sendAllLines() throws java.rmi.RemoteException {
-		// wbServer.sendAllLines(this, myBoardNm);// doubt
-	}
+	public void sendAllLines() throws java.rmi.RemoteException {}
+	public void sendLine(LineCoords ln) {}
+	public void pleaseDie() throws java.rmi.RemoteException {}
+	public void recvDisplayObj(LinesFrame s) {}
+	public void updateBoard(LineCoords ln) throws java.rmi.RemoteException {}
+	public void  sendClientInfo(WbServer wc) throws java.rmi.RemoteException{}
+	public void  sendClientInfo(WbClient wc) throws java.rmi.RemoteException{}
+	public void updateMyServer(WbServer new_server, String new_url) throws java.rmi.RemoteException{}
 
-	// * This method sends new line ln to server.
-	public void sendLine(LineCoords ln) {
-		// ln.c = myColor;
-		// try {wbServer.addLine(ln, myBoardNm);}
-		// catch (Exception e) {e.printStackTrace();}
-	}
-
-	// * This method deletes this client from its server and also delete it
-	// completely.
-	public void pleaseDie() throws java.rmi.RemoteException {
-		// try {
-		// wbServer.delClient(this, myBoardNm);
-		// Naming.unbind(myURL); // doubt
-		// } catch (Exception e) {e.printStackTrace();}
-		// Invoke.myPrint("WbClient ", myURL + " exits");
-		// System.exit(0);
-	}
-
-	// * doubt.
-	public void recvDisplayObj(LinesFrame s) {
-		// Invoke.myPrint("WbClient waiting Ended", "" + s);
-		// myLinesFrame = s;
-		// try {
-		// wbServer.addClient(this, myBoardNm);
-		// } catch (Exception e) {
-		// e.printStackTrace();
-		// }
-	}
-
-	// this comes from wbServer
-	// * This method updates board upon receiving new line from server via
-	// mylinesFrame.
-	public void updateBoard(LineCoords ln) throws java.rmi.RemoteException {
-		// myLinesFrame.recvOneLine(ln); // doubt
-	}
-
-	public void  sendClientInfo(WbServer wc) throws java.rmi.RemoteException{
-		// String S = ""; // " Client URL: " + myURL + " client_machine_name: " + thisMcnm + " board_name: " + myBoardNm + "my_server_url: " + myServerURL + " my_color: " + myColor;
-		// // System.out.println(S);
-		// wc.recvClientInfo(S);
-	}
-
-	public void  sendClientInfo(WbClient wc) throws java.rmi.RemoteException{
-		// String S = ""; // " Client URL: " + myURL + " client_machine_name: " + thisMcnm + " board_name: " + myBoardNm + "my_server_url: " + myServerURL + " my_color: " + myColor;
-		// // System.out.println(S);
-		// wc.recvClientInfo(S);
-	}
-	
-	public void updateMyServer(WbServer new_server, String new_url) throws java.rmi.RemoteException
-	{
-		// this.wbServer = new_server;
-		// this.myURL = new_url; 
-	}
-
-    public void recvClientInfo(String S) throws java.rmi.RemoteException      
-	{
-		System.out.println(S);
-	}
-
-
+	//* this vector stores reference to all servers created by this wbadmin interface.
 	private Vector<WbServer> vServers;
+	//* this vector stores url of all servers created by this wbadmin interface.
 	private Vector<String> serversUrl;
-	// private ABoard board_to_send;
+	//* acts as a global variable used during transferring of board.
 	private String to_URL;
 
 	private static final String menu = "\nWbAdmin: create a "
@@ -90,20 +35,23 @@ public class WbAdmin extends java.rmi.server.UnicastRemoteObject implements WbCl
 	public WbAdmin() throws Exception {
 		vServers = new Vector<WbServer>();
 		serversUrl = new Vector<String>();
+		to_URL = null;
 	}
 
+	//* modified. Now after creating a new server, its reference and url is stored in private vectors.
 	private void serverCreate() {
 		String args = Invoke.promptAndGet("ServerMachineName");
 		String url = Invoke.javaVM('S', args);
 		System.out.println("url of new server is: " + url);
+		//* sleeping for 5 secs to make sure that the new server is up by the time we try to loopup it via url.
 		try {
 			Thread.sleep(5000); // sleep for 5 seconds before establishing connection to the new server.
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		serversUrl.add(url);
 		WbServer new_server = (WbServer) Invoke.lookup(url);// doubt
 		vServers.add(new_server);
-		serversUrl.add(url);
 	}
 
 	private void addClientReq() {
@@ -111,45 +59,25 @@ public class WbAdmin extends java.rmi.server.UnicastRemoteObject implements WbCl
 		Invoke.javaVM('C', args);
 	}
 
+	//* staring method for a transfer request. It makes connection to from_server and request it to send thr board to transfer.
+	//* the from_server in turins call our receiveBoard_t method to send the board to transfer.
 	private void transferReq() throws java.rmi.RemoteException{
 		// Transfer a white board to a new server. For you TODO
 
-		
 		String arg = Invoke.promptAndGet("URL_from BoardName URL_to");
 		String args[] = arg.split(" ");
 		// System.out.println(" url_from: " + args[0] + ", board_name: "+ args[1] + ", url_to: " + args[2]);
 		
 		WbServer from_server = (WbServer) Invoke.lookup(args[0]); // doubt
 		this.to_URL = args[2];
-		// WbServer to_server = (WbServer) Invoke.lookup(args[1]); // doubt
-
 		from_server.sendBoard_t(this, args[1]);
 	}
 
-	// * debugging function:
-	private void printABoard(ABoard board) throws java.rmi.RemoteException{
-		System.out.println("\tboardname: " + board.boardName);
-		System.out.println("\tclients on this board:");
-		for (WbClient client : board.vClients) {
-			System.out.print("\t\t");
-			client.sendClientInfo(this);
-		}
-		System.out.println();
-		// System.out.println("\tlines on this board:\n");
-		// for (LineCoords lines : board.vLines) {
-		// 	System.out.println("\t\t" + lines.toString());
-		// }
-	}
-
-	// * a function to receive one board from a server.
-	public void receiveBoard_q(ABoard board) throws java.rmi.RemoteException {
-		// System.out.println("in wbadmin: receiveBoard_q");
-		printABoard(board);
-	}
-
-	// * a function to receive one board from a server.
+	//* a function to receive one board from server.
+	//* In this method a new connection is made to the to_server and receiveBoard_t method of to_server is called. 
+	//* Also for all the clients on the transferred board, updateMyServer is called to ask the cliet to update the server to to_server.
 	public void receiveBoard_t(ABoard board) throws java.rmi.RemoteException {
-		//* debussing.	
+			//* debugging.	
 			// System.out.println("IN WBADMIN: received board to transfer:");
 			// printABoard(board);
 		WbServer to_server = (WbServer) Invoke.lookup(this.to_URL); // doubt
@@ -166,6 +94,35 @@ public class WbAdmin extends java.rmi.server.UnicastRemoteObject implements WbCl
 		}
 	}
 
+	// * debugging function: prints all the clients and lines of board.
+	private void printABoard(ABoard board) throws java.rmi.RemoteException {
+		System.out.println("\tboardname: " + board.boardName);
+		System.out.println("\tclients on this board:");
+		for (WbClient client : board.vClients) {
+			System.out.print("\t\t");
+			client.sendClientInfo(this);
+		}
+		System.out.println();
+		// System.out.println("\tlines on this board:\n");
+		// for (LineCoords lines : board.vLines) {
+		// 	System.out.println("\t\t" + lines.toString());
+		// }
+	}
+
+	//* for debugging and query. This method receives info from a client as a string and then prints it. 
+	public void recvClientInfo(String S) throws java.rmi.RemoteException      
+	{
+		System.out.println(S);
+	}
+	
+
+	// * a function to receive one board from a server just to print the board for query.
+	public void receiveBoard_q(ABoard board) throws java.rmi.RemoteException {
+		// System.out.println("in wbadmin: receiveBoard_q");
+		printABoard(board);
+	}
+
+
 	// * a function to query a server by its url.
 	private void queryUrl() throws java.rmi.RemoteException {
 		String args = Invoke.promptAndGet("ServerURL");
@@ -181,8 +138,7 @@ public class WbAdmin extends java.rmi.server.UnicastRemoteObject implements WbCl
 		server.sendAllBoards_q(this); // imp.
 	}
 
-	//* This will query all the servers which were created via this WbAdmin
-	// interface only.
+	//* This will query all the servers which were created via this WbAdmin interface only.
 	private void queryReq() throws java.rmi.RemoteException {
 		// Query for inforamtion from each server. For you TODO
 		int index = 0;

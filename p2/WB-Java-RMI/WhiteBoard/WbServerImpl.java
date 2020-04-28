@@ -62,8 +62,7 @@ public class WbServerImpl extends UnicastRemoteObject implements WbServer {
 		return null;
 	}
 
-	// * rmi public method called by client. This sends all the lines on board brdnm
-	// to WbClient wc.
+	//* rhis method is called by wbadmin requesting this server to send all its boards for query purposes.
 	public void sendAllBoards_q(WbClient wa) throws java.rmi.RemoteException {
 		// System.out.println("in server, sendAllBoards_q");
 		for (Enumeration e = vBoards.elements(); e.hasMoreElements();) {
@@ -77,7 +76,7 @@ public class WbServerImpl extends UnicastRemoteObject implements WbServer {
 		}
 	}
 
-		// * debugging function:
+	//* debugging function:
 	private void printABoard(ABoard board) throws java.rmi.RemoteException {
 		System.out.println("\tboardname: \n" + board.boardName);
 		System.out.println("\tclients on this board:\n");
@@ -92,11 +91,13 @@ public class WbServerImpl extends UnicastRemoteObject implements WbServer {
 		}
 	}
 
+	//* method called by a client or wbadmin to receive info about this client as a string.
 	public void recvClientInfo(String S) throws java.rmi.RemoteException      
 	{
 		System.out.println(S);
 	}
 
+	//* this method is called by wbadmin to send new board to this server.
 	public void receiveBoard_t(ABoard board) throws java.rmi.RemoteException
 	{
 		System.out.println("IN NEW_SERVER: board received is: ");
@@ -105,8 +106,7 @@ public class WbServerImpl extends UnicastRemoteObject implements WbServer {
 	}
 
 
-	// * rmi public method called by client. This sends all the lines on board brdnm
-	// to WbClient wc.
+	//* this method is called by wbadmin requesting this server to send board (with name brdnm) to wa (actaully wbadmin).
 	public void sendBoard_t(WbClient wa, String brdnm) throws java.rmi.RemoteException {
 		// System.out.println("in server, sendAllBoards_q");
 		ABoard board = findAboard(brdnm);

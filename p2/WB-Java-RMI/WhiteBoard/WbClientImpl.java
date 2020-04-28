@@ -20,23 +20,6 @@ public class WbClientImpl extends java.rmi.server.UnicastRemoteObject implements
 		Invoke.javaVM('L', args[1] + " " + args[2] + " " + thisMcnm + " " + args[0]);
 	}
 
-	public void  sendClientInfo(WbClient wc) throws java.rmi.RemoteException{
-		String S = " Client URL: " + myURL + ", client_machine_name: " + thisMcnm + ", board_name: " + myBoardNm + ", my_server_url: " + myServerURL + ", my_color: " + myColor;
-		// System.out.println(S);
-		wc.recvClientInfo(S);
-	}
-
-	public void  sendClientInfo(WbServer ws) throws java.rmi.RemoteException{
-		String S = " Client URL: " + myURL + ", client_machine_name: " + thisMcnm + ", board_name: " + myBoardNm + ", my_server_url: " + myServerURL + ", my_color: " + myColor;
-		// System.out.println(S);
-		ws.recvClientInfo(S);
-	}
-
-	public void recvClientInfo(String S) throws java.rmi.RemoteException      
-	{
-		System.out.println(S);
-	}
-
 
 	public WbClientImpl(String[] args) throws Exception {
 		// args = [clientId, brdNm, displayMcnm, wbserverURL, color]
@@ -56,7 +39,27 @@ public class WbClientImpl extends java.rmi.server.UnicastRemoteObject implements
 		// addClient() occurs in recvDisplayObj()
 	}
 
-	// * debugging function:
+	//* method called by a client or wbadmin to receive info about this client as a string.
+	public void  sendClientInfo(WbClient wc) throws java.rmi.RemoteException{
+		String S = " Client URL: " + myURL + ", client_machine_name: " + thisMcnm + ", board_name: " + myBoardNm + ", my_server_url: " + myServerURL + ", my_color: " + myColor;
+		// System.out.println(S);
+		wc.recvClientInfo(S);
+	}
+
+	//* method called by a server to receive info about this client as a string.
+	public void  sendClientInfo(WbServer ws) throws java.rmi.RemoteException{
+		String S = " Client URL: " + myURL + ", client_machine_name: " + thisMcnm + ", board_name: " + myBoardNm + ", my_server_url: " + myServerURL + ", my_color: " + myColor;
+		// System.out.println(S);
+		ws.recvClientInfo(S);
+	}
+
+	//* for debugging and query. This method receives info from a client as a string and then prints it. 
+	public void recvClientInfo(String S) throws java.rmi.RemoteException      
+	{
+		System.out.println(S);
+	}
+
+	//* debugging function:
 	private void printABoard(ABoard board) {
 		System.out.println("\tboardname" + board.boardName);
 		System.out.println("\tclients on this board:");
@@ -69,37 +72,35 @@ public class WbClientImpl extends java.rmi.server.UnicastRemoteObject implements
 		}
 	}
 
-	// * a function to receive one board from a server.
+	//* a function to receive one board from a server.
 	public void receiveBoard_q(ABoard board) throws java.rmi.RemoteException {
 		System.out.println("in wbadmin: receiveBoard");
 		printABoard(board);
 	}
 	
-	// * a function to receive one board from a server.
+	//* a function to receive one board from a server.
 	public void receiveBoard_t(ABoard board) throws java.rmi.RemoteException {
 		System.out.println("in wbadmin: receiveBoard");
 		printABoard(board);
 	}
 
-	// this comes from wbServer
-	// * This method updates board upon receiving new line from server via
-	// mylinesFrame.
-	public void updateBoard(LineCoords ln) throws java.rmi.RemoteException {
-		myLinesFrame.recvOneLine(ln); // doubt
-	}
-
-	// the rest come from our LinesFrame
-
-	// * this method retrives all lines on myBoardNm from server.
-	public void sendAllLines() throws java.rmi.RemoteException {
-		wbServer.sendAllLines(this, myBoardNm);// doubt
-	}
-
+	//* this method is called by wbadmin to request this client to update its server as its board has been transferred to the new_server.
 	public void updateMyServer(WbServer new_server, String new_url) throws java.rmi.RemoteException
 	{
 		this.wbServer = new_server;
 		this.myURL = new_url; 
 	}
+
+	//* This method updates board upon receiving new line from server.
+	public void updateBoard(LineCoords ln) throws java.rmi.RemoteException {
+		myLinesFrame.recvOneLine(ln); // doubt
+	}
+
+	//* this method retrives all lines on myBoardNm from server.
+	public void sendAllLines() throws java.rmi.RemoteException {
+		wbServer.sendAllLines(this, myBoardNm);// doubt
+	}
+
 
 	// * This method sends new line ln to server.
 	public void sendLine(LineCoords ln) {

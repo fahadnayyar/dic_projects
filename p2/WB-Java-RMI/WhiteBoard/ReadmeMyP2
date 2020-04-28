@@ -1,0 +1,54 @@
+Files modified:
+    Invoke.java
+    WbAdmin.java
+    WbClient.java
+    WbClientImpl.java
+    WbServer.java
+    WbServerImpl.java
+
+
+build (go to the parent folder of WhiteBoard):
+    source WhiteBoard/java7370.sh
+    wb7370build
+
+usage:
+    To start a server:
+       
+        java WhiteBoard.WbServerImpl [server_id] [server_machine_ip]
+
+        eg: java WhiteBoard.WbServerImpl 1 localhost
+
+    To start a client on a board:
+        
+        java WhiteBoard.WbClientImpl [client_id] [board_name] [client_machine_ip_(output)] [url_of_server] [color] 
+                
+        eg: java WhiteBoard.WbClientImpl 1 b1 localhost //localhost/S1 0 
+
+    To start WbAdmin:
+
+        java WhiteBoard.WbAdmin
+
+    Wbadmin interface:
+
+    To start a new server via wbadmin:
+    
+        s
+
+    To add a new client via wbadmin:
+    
+        a
+        [BoardName] [DisplayOn] [ServerURL] [color]
+
+    To transfer a board from one server to another using wbadmin:
+      
+        t
+        [URL_from] [BoardName] [URL_to]
+
+    To queary a server via wbadmin by server's url:
+    
+        u
+        [ServerURL]
+
+    To queary all servers created via wbadmin:
+
+        q

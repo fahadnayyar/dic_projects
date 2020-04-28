@@ -9,7 +9,9 @@ public interface WbClient
     void sendLine(LineCoords ln)  throws java.rmi.RemoteException;
     void pleaseDie()  throws java.rmi.RemoteException;
     void recvDisplayObj(LinesFrame f)  throws java.rmi.RemoteException;    
-	void receiveBoard_q(ABoard board) throws java.rmi.RemoteException;
+    
+    //* new remote methods in client:
+    void receiveBoard_q(ABoard board) throws java.rmi.RemoteException;
 	void receiveBoard_t(ABoard board) throws java.rmi.RemoteException;
     void sendClientInfo(WbServer ws) throws java.rmi.RemoteException;
     void sendClientInfo(WbClient wc) throws java.rmi.RemoteException;
